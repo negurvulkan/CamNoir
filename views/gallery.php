@@ -24,7 +24,7 @@
                 <img src="<?= $path ?>" alt="Event-Foto">
                 <figcaption class="muted small">
                     Hochgeladen: <?= sanitize_text($photo['created_at']) ?><br>
-                    <a href="<?= base_url('delete-photo?delete_code=' . urlencode($photo['delete_code'])) ?>" class="secondary button-link small">Delete-Link</a>
+                    <a href="<?= base_url('delete-photo?delete_code=' . urlencode($photo['delete_code'])) ?>" class="secondary button-link small">Löschantrag</a>
                 </figcaption>
             </figure>
         <?php endforeach; ?>
