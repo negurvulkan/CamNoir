@@ -10,7 +10,7 @@ $base = rtrim(env('BASE_URL', ''), '/');
 if ($base !== '' && str_starts_with($uri, $base)) {
     $uri = substr($uri, strlen($base));
 }
-$uri = '/' . ltrim($uri, '/');
+$uri = '/' . trim($uri, '/');
 
 function respond_not_found()
 {
