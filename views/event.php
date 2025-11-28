@@ -1,6 +1,13 @@
 <?php
 ob_start();
 $remaining = (int)$event['max_photos_per_session'] - (int)$session['photo_count'];
+$stickerDir = __DIR__ . '/../public/stickers';
+$stickers = [];
+if (is_dir($stickerDir)) {
+    foreach (glob($stickerDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
+        $stickers[] = base_url('stickers/' . basename($file));
+    }
+}
 ?>
 <style>
 :root {
@@ -30,14 +37,53 @@ body {
         <input type="checkbox" id="consent" />
         <span>Ich stimme der Verarbeitung meiner Fotos im Rahmen dieses Events zu.</span>
     </label>
-    <div class="camera">
-        <video id="camera-preview" playsinline autoplay muted class="preview"></video>
-        <canvas id="camera-canvas" class="hidden"></canvas>
+    <div id="camera-view">
+        <div class="camera">
+            <video id="camera-preview" playsinline autoplay muted class="preview"></video>
+            <canvas id="camera-canvas" class="hidden"></canvas>
+        </div>
+        <div class="actions">
+            <button id="start-camera" class="secondary">Kamera starten</button>
+            <button id="take-photo" class="primary" disabled>Foto aufnehmen</button>
+        </div>
     </div>
-    <div class="actions">
-        <button id="start-camera" class="secondary">Kamera starten</button>
-        <button id="take-photo" class="primary" disabled>Foto aufnehmen</button>
+
+    <div id="editor-view" class="hidden">
+        <div class="editor-layout">
+            <canvas id="editor-canvas"></canvas>
+            <div id="editor-tools">
+                <div class="tool-header">
+                    <p class="muted small">Sticker hinzufügen</p>
+                    <p class="muted small">Tipp: Ziehe Sticker/Text, um sie zu verschieben.</p>
+                </div>
+                <div id="sticker-palette" class="sticker-palette">
+                    <?php if (!empty($stickers)): ?>
+                        <?php foreach ($stickers as $sticker): ?>
+                            <button type="button" class="sticker-btn" data-src="<?= sanitize_text($sticker) ?>">
+                                <img src="<?= sanitize_text($sticker) ?>" alt="Sticker" />
+                            </button>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="muted small">Noch keine Sticker hochgeladen.</p>
+                    <?php endif; ?>
+                </div>
+                <div class="tool-row">
+                    <button id="add-text-btn" class="secondary" type="button">Text hinzufügen</button>
+                    <div class="transform-buttons">
+                        <button id="overlay-scale-down" type="button" class="secondary" title="Kleiner">➖</button>
+                        <button id="overlay-scale-up" type="button" class="secondary" title="Größer">➕</button>
+                        <button id="overlay-rotate-left" type="button" class="secondary" title="Links drehen">⟲</button>
+                        <button id="overlay-rotate-right" type="button" class="secondary" title="Rechts drehen">⟳</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="editor-actions" class="actions">
+            <button id="edit-cancel-btn" class="secondary" type="button">Zurück zur Kamera</button>
+            <button id="edit-confirm-btn" class="primary" type="button">Fertig &amp; hochladen</button>
+        </div>
     </div>
+
     <p class="muted small">Datenschutz? <a href="<?= base_url('privacy') ?>">Zur Datenschutzerklärung</a></p>
     <p class="muted small">Session-ID: <code><?= sanitize_text($session['session_token']) ?></code></p>
     <div id="upload-status" class="upload-status hidden">
