@@ -164,7 +164,8 @@ if ($uri === '/delete-photo') {
         $deleted = $photoRepo->deleteByCode($code);
         render('delete_photo', ['status' => $deleted ? 'deleted' : 'not_found']);
     } else {
-        render('delete_photo');
+        $prefillCode = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['delete_code'] ?? '');
+        render('delete_photo', ['prefill_code' => $prefillCode]);
     }
     exit;
 }
