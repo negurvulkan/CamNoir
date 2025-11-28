@@ -10,6 +10,9 @@
         <p class="muted">Slug: <code><?= sanitize_text($event['slug']) ?></code></p>
         <p class="muted">Primärfarbe: <span style="color: <?= sanitize_text($event['theme_primary_color']) ?>; font-weight:700;">
             <?= sanitize_text($event['theme_primary_color']) ?></span></p>
+        <p class="muted">Background/Muster: <code><?= $event['theme_background_pattern'] ? 'gesetzt' : 'nicht gesetzt' ?></code></p>
+        <p class="muted">Logo: <?= $event['theme_logo_url'] ? '<code>' . sanitize_text($event['theme_logo_url']) . '</code>' : '–' ?></p>
+        <p class="muted">Frame-Branding: <?= $event['frame_branding_text'] ? sanitize_text($event['frame_branding_text']) : '–' ?></p>
     </div>
     <div>
         <p class="muted small">Aktive Sessions</p>
@@ -26,6 +29,28 @@
     <div>
         <p class="muted small">Letzter Upload</p>
         <h2><?= $stats['last_upload'] ? sanitize_text($stats['last_upload']) : '–' ?></h2>
+    </div>
+    <div>
+        <p class="muted small">Löschungen</p>
+        <h2><?= (int)$delete_stats['delete_code'] ?> Codes / <?= (int)$delete_stats['session'] ?> Sessions</h2>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Delete-Log</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Typ</th><th>Detail</th><th>Zeitpunkt</th></tr></thead>
+            <tbody>
+                <?php foreach ($delete_rows as $row): ?>
+                    <tr>
+                        <td><?= sanitize_text($row['type']) ?></td>
+                        <td><?= $row['detail'] ? sanitize_text($row['detail']) : '–' ?></td>
+                        <td><?= sanitize_text($row['created_at']) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
     </div>
 </section>
 

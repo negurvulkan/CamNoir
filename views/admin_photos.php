@@ -29,7 +29,16 @@
                 <img src="<?= base_url(str_replace(__DIR__ . '/../', '', $photo['file_path'])) ?>" alt="Foto">
                 <p class="muted small">Session: <code><?= sanitize_text($photo['session_id']) ?></code></p>
                 <p class="muted small">Löschcode: <code><?= sanitize_text($photo['delete_code']) ?></code></p>
+                <p class="muted small">Status: <?= $photo['deleted_at'] ? 'Gelöscht' : ((int)$photo['is_approved'] ? 'Freigegeben' : 'Wartet auf Freigabe') ?></p>
                 <p class="muted small">Erstellt: <?= sanitize_text($photo['created_at']) ?></p>
+                <div class="actions">
+                    <form method="POST" style="display:flex; gap:8px; align-items:center;">
+                        <input type="hidden" name="action" value="approve">
+                        <input type="hidden" name="photo_id" value="<?= (int)$photo['id'] ?>">
+                        <button class="secondary" type="submit" name="state" value="1" <?= (int)$photo['is_approved'] ? 'disabled' : '' ?>>Freigeben</button>
+                        <button class="secondary" type="submit" name="state" value="0" <?= !(int)$photo['is_approved'] ? 'disabled' : '' ?>>Sperren</button>
+                    </form>
+                </div>
             </label>
         <?php endforeach; ?>
         </div>

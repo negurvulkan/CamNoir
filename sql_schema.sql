@@ -6,6 +6,9 @@ CREATE TABLE events (
     max_photos_per_session INT DEFAULT 10,
     auto_delete_days INT DEFAULT 30,
     theme_primary_color VARCHAR(20) NULL,
+    theme_background_pattern TEXT NULL,
+    theme_logo_url VARCHAR(255) NULL,
+    frame_branding_text VARCHAR(255) NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -27,8 +30,18 @@ CREATE TABLE photos (
     picture_uuid VARCHAR(255) NOT NULL,
     delete_code VARCHAR(16) UNIQUE NOT NULL,
     file_path VARCHAR(255) NOT NULL,
+    is_approved TINYINT(1) DEFAULT 0,
     created_at DATETIME NOT NULL,
     deleted_at DATETIME NULL,
     CONSTRAINT fk_photos_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
     CONSTRAINT fk_photos_session FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE delete_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_id INT NOT NULL,
+    type ENUM('delete_code', 'session') NOT NULL,
+    detail VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL,
+    CONSTRAINT fk_delete_logs_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

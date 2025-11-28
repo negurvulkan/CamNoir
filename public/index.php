@@ -4,6 +4,7 @@ require_once __DIR__ . '/../bootstrap.php';
 $eventRepo = new EventRepository();
 $sessionRepo = new SessionRepository();
 $photoRepo = new PhotoRepository();
+$deleteLogRepo = new DeleteLogRepository();
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $base = rtrim(env('BASE_URL', ''), '/');
@@ -64,6 +65,9 @@ if ($uri === '/api/events' && $_SERVER['REQUEST_METHOD'] === 'GET') {
             'slug' => $event['slug'],
             'description' => $event['description'],
             'theme_primary_color' => $event['theme_primary_color'],
+            'theme_background_pattern' => $event['theme_background_pattern'],
+            'theme_logo_url' => $event['theme_logo_url'],
+            'frame_branding_text' => $event['frame_branding_text'],
             'created_at' => $event['created_at'],
         ];
     }, $eventRepo->findAll());
@@ -76,17 +80,28 @@ if (preg_match('#^/api/events/(\d+)/photos$#', $uri, $matches) && $_SERVER['REQU
     if (!$event) {
         respond_not_found();
     }
-    $photos = $photoRepo->findByEvent($eventId);
+    $photos = $photoRepo->findPublicByEvent($eventId);
     respond_json(['event' => $eventId, 'photos' => $photos]);
 }
 
 if (preg_match('#^/api/photos/([a-f0-9-]+)$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
     $uuid = $matches[1];
     $photo = $photoRepo->findByUuid($uuid);
-    if (!$photo) {
+    if (!$photo || $photo['deleted_at'] !== null || !(int)$photo['is_approved']) {
         respond_not_found();
     }
     respond_json($photo);
+}
+
+if (preg_match('#^/api/events/(\d+)/live-photos$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $eventId = (int) $matches[1];
+    $event = $eventRepo->find($eventId);
+    if (!$event) {
+        respond_not_found();
+    }
+    $since = $_GET['since'] ?? null;
+    $photos = $photoRepo->findApprovedSince($eventId, $since);
+    respond_json(['event' => $eventId, 'photos' => $photos]);
 }
 
 if (preg_match('#^/e/([a-zA-Z0-9-]+)/gallery$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -97,6 +112,20 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)/gallery$#', $uri, $matches) && $_SERVER['RE
     }
     $photos = $photoRepo->findPublicByEvent((int)$event['id']);
     render('gallery', [
+        'event' => $event,
+        'photos' => $photos,
+    ]);
+    exit;
+}
+
+if (preg_match('#^/e/([a-zA-Z0-9-]+)/slideshow$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $slug = $matches[1];
+    $event = $eventRepo->findBySlug($slug);
+    if (!$event) {
+        respond_not_found();
+    }
+    $photos = $photoRepo->findPublicByEvent((int)$event['id']);
+    render('slideshow', [
         'event' => $event,
         'photos' => $photos,
     ]);
@@ -148,21 +177,23 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)/upload$#', $uri, $matches) && $_SERVER['REQ
     $dst = imagecreatetruecolor($newWidth, $newHeight);
     imagecopyresampled($dst, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
 
-    // Render frame with delete code
+    // Render frame with delete code and branding
     $deleteCode = strtoupper(substr(random_token(8), 0, 8));
-    $text = 'NRW Noir Cam – Delete Code: ' . $deleteCode;
-    $margin = 40;
+    $frameLabel = trim(($event['frame_branding_text'] ?? '') ?: ($event['name'] . ' – NRW Noir Cam'));
+    $text = $frameLabel . ' – Delete Code: ' . $deleteCode;
+    $margin = 48;
     $frameHeight = $newHeight + $margin;
     $framed = imagecreatetruecolor($newWidth, $frameHeight);
     $bg = imagecolorallocate($framed, 5, 5, 9);
-    $fg = imagecolorallocate($framed, 255, 255, 255);
+    [$r, $g, $b] = sscanf($event['theme_primary_color'] ?: '#c8a2ff', '#%02x%02x%02x');
+    $fg = imagecolorallocate($framed, $r, $g, $b);
     imagefilledrectangle($framed, 0, 0, $newWidth, $frameHeight, $bg);
     imagecopy($framed, $dst, 0, 0, 0, 0, $newWidth, $newHeight);
     imagerectangle($framed, 0, 0, $newWidth - 1, $frameHeight - 1, $fg);
     $fontSize = 3;
     $textWidth = imagefontwidth($fontSize) * strlen($text);
     $textX = max(4, ($newWidth - $textWidth) / 2);
-    imagestring($framed, $fontSize, (int)$textX, $newHeight + 12, $text, $fg);
+    imagestring($framed, $fontSize, (int)$textX, $newHeight + 14, $text, $fg);
 
     $uploadDir = ensure_upload_dir();
     $pictureUuid = uuid();
@@ -178,6 +209,7 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)/upload$#', $uri, $matches) && $_SERVER['REQ
         'picture_uuid' => $pictureUuid,
         'delete_code' => $deleteCode,
         'file_path' => $filePath,
+        'is_approved' => 0,
     ]);
     $sessionRepo->incrementPhotoCount((int)$session['id']);
 
@@ -190,8 +222,11 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)/upload$#', $uri, $matches) && $_SERVER['REQ
 if ($uri === '/delete-session') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $token = preg_replace('/[^a-zA-Z0-9]/', '', $_POST['session_token'] ?? '');
-        $deleted = $sessionRepo->deleteByToken($token);
-        render('delete_session', ['status' => $deleted ? 'deleted' : 'not_found']);
+        $result = $sessionRepo->deleteByToken($token);
+        if ($result['deleted'] > 0 && $result['event_id']) {
+            $deleteLogRepo->log((int)$result['event_id'], 'session', $token);
+        }
+        render('delete_session', ['status' => $result['deleted'] ? 'deleted' : 'not_found']);
     } else {
         render('delete_session');
     }
@@ -202,8 +237,11 @@ if ($uri === '/delete-session') {
 if ($uri === '/delete-photo') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $code = preg_replace('/[^a-zA-Z0-9]/', '', $_POST['delete_code'] ?? '');
-        $deleted = $photoRepo->deleteByCode($code);
-        render('delete_photo', ['status' => $deleted ? 'deleted' : 'not_found']);
+        $photo = $photoRepo->deleteByCode($code);
+        if ($photo) {
+            $deleteLogRepo->log((int)$photo['event_id'], 'delete_code', $code);
+        }
+        render('delete_photo', ['status' => $photo ? 'deleted' : 'not_found']);
     } else {
         $prefillCode = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['delete_code'] ?? '');
         render('delete_photo', ['prefill_code' => $prefillCode]);
@@ -250,6 +288,9 @@ if ($uri === '/admin/events') {
             'max_photos_per_session' => (int)($_POST['max_photos_per_session'] ?? 10),
             'auto_delete_days' => (int)($_POST['auto_delete_days'] ?? 30),
             'theme_primary_color' => trim($_POST['theme_primary_color'] ?? '#e0e0e0'),
+            'theme_background_pattern' => trim($_POST['theme_background_pattern'] ?? ''),
+            'theme_logo_url' => trim($_POST['theme_logo_url'] ?? ''),
+            'frame_branding_text' => trim($_POST['frame_branding_text'] ?? ''),
         ];
         if (!empty($_POST['id'])) {
             $eventRepo->update((int)$_POST['id'], $data);
@@ -278,7 +319,9 @@ if (preg_match('#^/admin/events/(\d+)$#', $uri, $matches)) {
         'avg_per_session' => $photoRepo->averagePerSession($eventId),
     ];
     $sessions = $sessionRepo->findByEvent($eventId);
-    render('admin_event_detail', ['event' => $event, 'stats' => $stats, 'sessions' => $sessions]);
+    $deleteStats = $deleteLogRepo->countsForEvent($eventId);
+    $deleteRows = $deleteLogRepo->latestForEvent($eventId, 12);
+    render('admin_event_detail', ['event' => $event, 'stats' => $stats, 'sessions' => $sessions, 'delete_stats' => $deleteStats, 'delete_rows' => $deleteRows]);
     exit;
 }
 
@@ -294,7 +337,19 @@ if (preg_match('#^/admin/events/(\d+)/photos$#', $uri, $matches)) {
         if ($action === 'delete') {
             $code = preg_replace('/[^a-zA-Z0-9]/', '', $_POST['delete_code'] ?? '');
             if ($code) {
-                $photoRepo->deleteByCode($code);
+                $photo = $photoRepo->deleteByCode($code);
+                if ($photo) {
+                    $deleteLogRepo->log((int)$photo['event_id'], 'delete_code', $code);
+                }
+            }
+            header('Location: ' . base_url('admin/events/' . $eventId . '/photos'));
+            exit;
+        }
+        if ($action === 'approve') {
+            $photoId = (int)($_POST['photo_id'] ?? 0);
+            $state = isset($_POST['state']) && $_POST['state'] === '1';
+            if ($photoId > 0) {
+                $photoRepo->setApproval($photoId, $state);
             }
             header('Location: ' . base_url('admin/events/' . $eventId . '/photos'));
             exit;
