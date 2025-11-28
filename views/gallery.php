@@ -27,6 +27,15 @@
         <?php endforeach; ?>
     </section>
 <?php endif; ?>
+
+<div id="photo-modal" class="photo-modal hidden" role="dialog" aria-modal="true" aria-label="Foto Großansicht">
+    <div class="modal-content">
+        <img id="photo-modal-image" src="" alt="Vergrößertes Event-Foto">
+        <button id="photo-modal-close" aria-label="Schließen">×</button>
+    </div>
+</div>
+
+<script src="<?= base_url('js/gallery.js') ?>"></script>
 <?php
 $content = ob_get_clean();
 $title = sanitize_text($event['name']) . ' – Galerie';
