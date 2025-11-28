@@ -48,6 +48,20 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)$#', $uri, $matches) && $_SERVER['REQUEST_ME
     exit;
 }
 
+if (preg_match('#^/e/([a-zA-Z0-9-]+)/gallery$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $slug = $matches[1];
+    $event = $eventRepo->findBySlug($slug);
+    if (!$event) {
+        respond_not_found();
+    }
+    $photos = $photoRepo->findPublicByEvent((int)$event['id']);
+    render('gallery', [
+        'event' => $event,
+        'photos' => $photos,
+    ]);
+    exit;
+}
+
 if (preg_match('#^/e/([a-zA-Z0-9-]+)/upload$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $slug = $matches[1];
     $event = $eventRepo->findBySlug($slug);

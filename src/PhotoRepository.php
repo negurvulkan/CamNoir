@@ -41,6 +41,13 @@ class PhotoRepository
         return $stmt->fetchAll();
     }
 
+    public function findPublicByEvent(int $eventId): array
+    {
+        $stmt = Database::connection()->prepare('SELECT * FROM photos WHERE event_id = :event_id AND deleted_at IS NULL ORDER BY created_at DESC');
+        $stmt->execute(['event_id' => $eventId]);
+        return $stmt->fetchAll();
+    }
+
     public function deleteOlderThan(int $eventId, int $days): int
     {
         $db = Database::connection();

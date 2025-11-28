@@ -11,6 +11,7 @@ Minimalistische Web-App, mit der Besucher:innen per QR-Code eine digitale Einweg
 ## Routen
 - `/e/{slug}`: Event-Frontend mit Kamera, Session-Verwaltung und Upload.
 - `/e/{slug}/upload` (POST): Upload-Endpoint für Bilder.
+- `/e/{slug}/gallery`: Readonly-Galerie eines Events.
 - `/delete-session`: Formular, um alle Fotos einer Session zu löschen.
 - `/delete-photo`: Formular, um ein einzelnes Foto per Löschcode zu löschen.
 - `/privacy`: Platzhalter für Datenschutzerklärung.
@@ -24,4 +25,4 @@ Minimalistische Web-App, mit der Besucher:innen per QR-Code eine digitale Einweg
 ## Sicherheit & Datenschutz
 - Keine personenbezogenen Daten werden gespeichert.
 - Löschcodes werden im Bild gerendert, damit abgebildete Personen selbst löschen können.
-- Admin-Bereich ist passwortgeschützt; keine öffentlichen Galerien für Besucher:innen.
+- Admin-Bereich ist passwortgeschützt; die Event-Galerie ist rein lesend und verzichtet auf Nutzerkonten.
