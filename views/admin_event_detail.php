@@ -101,7 +101,7 @@ function renderQr() {
     qrContainer.innerHTML = '';
     const options = { width: 240, color: { dark: '#050509', light: '#ffffff' } };
     if (branding.checked) {
-        currentSvg = `<?xml version="1.0" encoding="UTF-8"?>`;
+        currentSvg = '<' + '?xml version="1.0" encoding="UTF-8"?>';
     }
     QRCode.toString(link, {type: 'svg', margin: 2, color: {dark: '#050509', light: '#ffffff'}, width: 240}, function(err, svg) {
         if (err) return;
