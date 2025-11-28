@@ -5,8 +5,8 @@ class PhotoRepository
     public function create(array $data): int
     {
         $stmt = Database::connection()->prepare(
-            'INSERT INTO photos (event_id, session_id, picture_uuid, delete_code, file_path, created_at)
-            VALUES (:event_id, :session_id, :picture_uuid, :delete_code, :file_path, NOW())'
+            'INSERT INTO photos (event_id, session_id, picture_uuid, delete_code, file_path, is_approved, created_at)'
+            . ' VALUES (:event_id, :session_id, :picture_uuid, :delete_code, :file_path, :is_approved, NOW())'
         );
         $stmt->execute([
             'event_id' => $data['event_id'],
@@ -14,24 +14,25 @@ class PhotoRepository
             'picture_uuid' => $data['picture_uuid'],
             'delete_code' => $data['delete_code'],
             'file_path' => $data['file_path'],
+            'is_approved' => $data['is_approved'] ?? 0,
         ]);
         return (int) Database::connection()->lastInsertId();
     }
 
-    public function deleteByCode(string $deleteCode): bool
+    public function deleteByCode(string $deleteCode): ?array
     {
         $db = Database::connection();
-        $stmt = $db->prepare('SELECT id, file_path FROM photos WHERE delete_code = :code');
+        $stmt = $db->prepare('SELECT id, file_path, event_id FROM photos WHERE delete_code = :code');
         $stmt->execute(['code' => $deleteCode]);
         $photo = $stmt->fetch();
         if (!$photo) {
-            return false;
+            return null;
         }
         if (is_file($photo['file_path'])) {
             unlink($photo['file_path']);
         }
-        $db->prepare('DELETE FROM photos WHERE id = :id')->execute(['id' => $photo['id']]);
-        return true;
+        $db->prepare('UPDATE photos SET deleted_at = NOW() WHERE id = :id')->execute(['id' => $photo['id']]);
+        return $photo;
     }
 
     public function findByEvent(int $eventId): array
@@ -43,8 +44,22 @@ class PhotoRepository
 
     public function findPublicByEvent(int $eventId): array
     {
-        $stmt = Database::connection()->prepare('SELECT * FROM photos WHERE event_id = :event_id AND deleted_at IS NULL ORDER BY created_at DESC');
+        $stmt = Database::connection()->prepare('SELECT * FROM photos WHERE event_id = :event_id AND deleted_at IS NULL AND is_approved = 1 ORDER BY created_at DESC');
         $stmt->execute(['event_id' => $eventId]);
+        return $stmt->fetchAll();
+    }
+
+    public function findApprovedSince(int $eventId, ?string $since = null): array
+    {
+        $query = 'SELECT * FROM photos WHERE event_id = :event_id AND deleted_at IS NULL AND is_approved = 1';
+        $params = ['event_id' => $eventId];
+        if ($since) {
+            $query .= ' AND created_at > :since';
+            $params['since'] = $since;
+        }
+        $query .= ' ORDER BY created_at DESC';
+        $stmt = Database::connection()->prepare($query);
+        $stmt->execute($params);
         return $stmt->fetchAll();
     }
 
@@ -104,5 +119,11 @@ class PhotoRepository
             $db->prepare('DELETE FROM photos WHERE id = :id')->execute(['id' => $photo['id']]);
         }
         return count($photos);
+    }
+
+    public function setApproval(int $photoId, bool $approved): void
+    {
+        $stmt = Database::connection()->prepare('UPDATE photos SET is_approved = :approved WHERE id = :id');
+        $stmt->execute(['approved' => $approved ? 1 : 0, 'id' => $photoId]);
     }
 }

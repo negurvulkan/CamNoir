@@ -8,6 +8,7 @@ const uploadStatus = document.getElementById('upload-status');
 const uploadStatusText = document.getElementById('upload-status-text');
 let stream = null;
 let remaining = window.CAM_CONFIG?.remaining ?? 0;
+let uploadQueue = JSON.parse(localStorage.getItem('noir_upload_queue') || '[]');
 
 function showToast(message) {
     toast.textContent = message;
@@ -24,6 +25,32 @@ function updateRemaining(count) {
         showToast('Limit erreicht.');
     }
 }
+
+function saveQueue() {
+    localStorage.setItem('noir_upload_queue', JSON.stringify(uploadQueue));
+}
+
+async function processQueue() {
+    if (!uploadQueue.length) return;
+    const next = uploadQueue[0];
+    try {
+        const blob = await fetch(next.dataUrl).then((r) => r.blob());
+        const formData = new FormData();
+        formData.append('photo', blob, 'offline-photo.jpg');
+        formData.append('session_token', next.sessionToken);
+        const res = await fetch(window.CAM_CONFIG.uploadUrl, { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            uploadQueue.shift();
+            saveQueue();
+            showToast('Offline-Foto synchronisiert.');
+            updateRemaining(remaining - 1);
+        }
+    } catch (err) {
+        console.warn('Queue upload failed', err);
+    }
+}
+window.addEventListener('online', processQueue);
 
 async function startCamera() {
     try {
@@ -56,33 +83,50 @@ async function takePhoto() {
         formData.append('session_token', window.CAM_CONFIG.sessionToken);
         takeBtn.disabled = true;
         if (uploadStatus && uploadStatusText) {
-            uploadStatusText.textContent = 'Foto wird hochgeladen…';
+            uploadStatusText.textContent = navigator.onLine ? 'Foto wird hochgeladen…' : 'Offline gespeichert…';
             uploadStatus.classList.remove('hidden');
         } else {
             showToast('Lade hoch ...');
         }
         try {
-            const res = await fetch(window.CAM_CONFIG.uploadUrl, {
-                method: 'POST',
-                body: formData
-            });
-            const json = await res.json();
-            if (json.success) {
-                updateRemaining(remaining - 1);
-                if (uploadStatus && uploadStatusText) {
-                    uploadStatusText.textContent = 'Gespeichert! Löschcode: ' + json.delete_code;
-                }
-                showToast('Foto gespeichert. Löschcode: ' + json.delete_code);
+            if (!navigator.onLine) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    uploadQueue.push({ dataUrl: reader.result, sessionToken: window.CAM_CONFIG.sessionToken, createdAt: Date.now() });
+                    saveQueue();
+                    showToast('Offline gespeichert – synchronisiert später.');
+                };
+                reader.readAsDataURL(blob);
             } else {
-                showToast(json.error || 'Upload fehlgeschlagen.');
+                const res = await fetch(window.CAM_CONFIG.uploadUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+                const json = await res.json();
+                if (json.success) {
+                    updateRemaining(remaining - 1);
+                    if (uploadStatus && uploadStatusText) {
+                        uploadStatusText.textContent = 'Gespeichert! Löschcode: ' + json.delete_code;
+                    }
+                    showToast('Foto gespeichert. Löschcode: ' + json.delete_code);
+                } else {
+                    showToast(json.error || 'Upload fehlgeschlagen.');
+                }
             }
         } catch (err) {
-            showToast('Upload nicht möglich.');
+            showToast('Upload nicht möglich. In Queue gespeichert.');
+            const reader = new FileReader();
+            reader.onload = () => {
+                uploadQueue.push({ dataUrl: reader.result, sessionToken: window.CAM_CONFIG.sessionToken, createdAt: Date.now() });
+                saveQueue();
+            };
+            reader.readAsDataURL(blob);
         } finally {
             if (uploadStatus) {
                 setTimeout(() => uploadStatus.classList.add('hidden'), 1200);
             }
             if (remaining > 0) takeBtn.disabled = !consent.checked;
+            processQueue();
         }
     }, 'image/jpeg', 0.9);
 }
@@ -94,3 +138,4 @@ consent?.addEventListener('change', () => {
 startBtn?.addEventListener('click', startCamera);
 takeBtn?.addEventListener('click', takePhoto);
 updateRemaining(remaining);
+processQueue();

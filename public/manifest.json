@@ -1,0 +1,9 @@
+{
+  "name": "NRW Noir Cam",
+  "short_name": "Noir Cam",
+  "start_url": "/privacy",
+  "display": "standalone",
+  "background_color": "#050509",
+  "theme_color": "#050509",
+  "icons": []
+}

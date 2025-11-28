@@ -19,8 +19,8 @@ class EventRepository
     public function create(array $data): int
     {
         $stmt = Database::connection()->prepare(
-            'INSERT INTO events (slug, name, description, max_photos_per_session, auto_delete_days, theme_primary_color, created_at, updated_at)
-            VALUES (:slug, :name, :description, :max_photos_per_session, :auto_delete_days, :theme_primary_color, NOW(), NOW())'
+            'INSERT INTO events (slug, name, description, max_photos_per_session, auto_delete_days, theme_primary_color, theme_background_pattern, theme_logo_url, frame_branding_text, created_at, updated_at)'
+            . ' VALUES (:slug, :name, :description, :max_photos_per_session, :auto_delete_days, :theme_primary_color, :theme_background_pattern, :theme_logo_url, :frame_branding_text, NOW(), NOW())'
         );
         $stmt->execute([
             'slug' => $data['slug'],
@@ -29,6 +29,9 @@ class EventRepository
             'max_photos_per_session' => $data['max_photos_per_session'],
             'auto_delete_days' => $data['auto_delete_days'],
             'theme_primary_color' => $data['theme_primary_color'] ?? null,
+            'theme_background_pattern' => $data['theme_background_pattern'] ?? null,
+            'theme_logo_url' => $data['theme_logo_url'] ?? null,
+            'frame_branding_text' => $data['frame_branding_text'] ?? null,
         ]);
         return (int) Database::connection()->lastInsertId();
     }
@@ -36,7 +39,7 @@ class EventRepository
     public function update(int $id, array $data): void
     {
         $stmt = Database::connection()->prepare(
-            'UPDATE events SET slug=:slug, name=:name, description=:description, max_photos_per_session=:max_photos_per_session, auto_delete_days=:auto_delete_days, theme_primary_color=:theme_primary_color, updated_at=NOW() WHERE id=:id'
+            'UPDATE events SET slug=:slug, name=:name, description=:description, max_photos_per_session=:max_photos_per_session, auto_delete_days=:auto_delete_days, theme_primary_color=:theme_primary_color, theme_background_pattern=:theme_background_pattern, theme_logo_url=:theme_logo_url, frame_branding_text=:frame_branding_text, updated_at=NOW() WHERE id=:id'
         );
         $stmt->execute([
             'id' => $id,
@@ -46,6 +49,9 @@ class EventRepository
             'max_photos_per_session' => $data['max_photos_per_session'],
             'auto_delete_days' => $data['auto_delete_days'],
             'theme_primary_color' => $data['theme_primary_color'] ?? null,
+            'theme_background_pattern' => $data['theme_background_pattern'] ?? null,
+            'theme_logo_url' => $data['theme_logo_url'] ?? null,
+            'frame_branding_text' => $data['frame_branding_text'] ?? null,
         ]);
     }
 

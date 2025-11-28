@@ -3,7 +3,13 @@ ob_start();
 $remaining = (int)$event['max_photos_per_session'] - (int)$session['photo_count'];
 ?>
 <style>
-:root { --primary: <?= json_encode($event['theme_primary_color'] ?: '#c8a2ff') ?>; }
+:root {
+    --primary: <?= json_encode($event['theme_primary_color'] ?: '#c8a2ff') ?>;
+    --bg-pattern: <?= json_encode($event['theme_background_pattern'] ?: 'radial-gradient(circle at 20% 20%, rgba(200,162,255,0.1), transparent 30%)') ?>;
+}
+body {
+    background: var(--bg-pattern), var(--bg);
+}
 </style>
 <div class="header">
     <div>
@@ -12,7 +18,11 @@ $remaining = (int)$event['max_photos_per_session'] - (int)$session['photo_count'
         <p class="muted">Du kannst noch <strong id="remaining-count"><?= $remaining ?></strong> von <?= (int)$event['max_photos_per_session'] ?> Fotos aufnehmen.</p>
         <p class="muted small">Jedes Foto erhält einen Löschcode im Bild. Du kannst später mit deiner Session-ID oder einem Löschcode löschen lassen.</p>
         <p class="muted small">Event-Galerie ansehen: <a href="<?= base_url('e/' . sanitize_text($event['slug']) . '/gallery') ?>">Zur Übersicht</a></p>
+        <p class="muted small">Live-Diashow: <a href="<?= base_url('e/' . sanitize_text($event['slug']) . '/slideshow') ?>">Beamer-Ansicht öffnen</a></p>
     </div>
+    <?php if (!empty($event['theme_logo_url'])): ?>
+        <div><img src="<?= sanitize_text($event['theme_logo_url']) ?>" alt="Logo" style="max-width:160px; max-height:120px;"></div>
+    <?php endif; ?>
 </div>
 
 <section class="card">
