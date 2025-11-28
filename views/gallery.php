@@ -22,7 +22,10 @@
             <?php $path = base_url(str_replace(__DIR__ . '/../', '', $photo['file_path'])); ?>
             <figure class="photo">
                 <img src="<?= $path ?>" alt="Event-Foto">
-                <figcaption class="muted small">Hochgeladen: <?= sanitize_text($photo['created_at']) ?></figcaption>
+                <figcaption class="muted small">
+                    Hochgeladen: <?= sanitize_text($photo['created_at']) ?><br>
+                    <a href="<?= base_url('delete-photo?delete_code=' . urlencode($photo['delete_code'])) ?>" class="secondary button-link small">Delete-Link</a>
+                </figcaption>
             </figure>
         <?php endforeach; ?>
     </section>
