@@ -43,6 +43,7 @@
                 <td><?= (int)$event['max_photos_per_session'] ?></td>
                 <td><?= (int)$event['auto_delete_days'] ?> Tage</td>
                 <td>
+                    <a class="secondary" href="<?= base_url('admin/events/' . (int)$event['id']) ?>">Details</a>
                     <a class="secondary" href="<?= base_url('admin/events/' . (int)$event['id'] . '/photos') ?>">Fotos</a>
                     <button class="secondary" onclick='fillEvent(<?= json_encode($event) ?>)'>Bearbeiten</button>
                     <a class="secondary" href="<?= base_url('e/' . sanitize_text($event['slug'])) ?>" target="_blank">Event-Link</a>

@@ -26,6 +26,20 @@ class SessionRepository
         $stmt->execute(['id' => $sessionId]);
     }
 
+    public function countByEvent(int $eventId): int
+    {
+        $stmt = Database::connection()->prepare('SELECT COUNT(*) AS cnt FROM sessions WHERE event_id = :event_id');
+        $stmt->execute(['event_id' => $eventId]);
+        return (int) ($stmt->fetch()['cnt'] ?? 0);
+    }
+
+    public function findByEvent(int $eventId): array
+    {
+        $stmt = Database::connection()->prepare('SELECT * FROM sessions WHERE event_id = :event_id ORDER BY last_activity_at DESC');
+        $stmt->execute(['event_id' => $eventId]);
+        return $stmt->fetchAll();
+    }
+
     public function deleteByToken(string $token): int
     {
         $stmt = Database::connection()->prepare('SELECT id FROM sessions WHERE session_token = :token');
