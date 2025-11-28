@@ -2,6 +2,9 @@
 ob_start();
 $remaining = (int)$event['max_photos_per_session'] - (int)$session['photo_count'];
 ?>
+<style>
+:root { --primary: <?= json_encode($event['theme_primary_color'] ?: '#c8a2ff') ?>; }
+</style>
 <div class="header">
     <div>
         <p class="eyebrow">NRW Noir Disposable Cam</p>
@@ -27,6 +30,9 @@ $remaining = (int)$event['max_photos_per_session'] - (int)$session['photo_count'
     </div>
     <p class="muted small">Datenschutz? <a href="<?= base_url('privacy') ?>">Zur Datenschutzerklärung</a></p>
     <p class="muted small">Session-ID: <code><?= sanitize_text($session['session_token']) ?></code></p>
+    <div id="upload-status" class="upload-status hidden">
+        <span id="upload-status-text">Foto wird hochgeladen…</span>
+    </div>
 </section>
 
 <div id="toast" class="toast hidden"></div>

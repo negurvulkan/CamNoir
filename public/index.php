@@ -19,6 +19,13 @@ function respond_not_found()
     exit;
 }
 
+function respond_json(array $data): void
+{
+    header('Content-Type: application/json');
+    echo json_encode($data);
+    exit;
+}
+
 if ($uri === '/' || $uri === '') {
     header('Location: ' . base_url('privacy'));
     exit;
@@ -46,6 +53,40 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)$#', $uri, $matches) && $_SERVER['REQUEST_ME
         'session' => $session,
     ]);
     exit;
+}
+
+// API routes
+if ($uri === '/api/events' && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $events = array_map(function ($event) {
+        return [
+            'id' => (int) $event['id'],
+            'name' => $event['name'],
+            'slug' => $event['slug'],
+            'description' => $event['description'],
+            'theme_primary_color' => $event['theme_primary_color'],
+            'created_at' => $event['created_at'],
+        ];
+    }, $eventRepo->findAll());
+    respond_json(['events' => $events]);
+}
+
+if (preg_match('#^/api/events/(\d+)/photos$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $eventId = (int) $matches[1];
+    $event = $eventRepo->find($eventId);
+    if (!$event) {
+        respond_not_found();
+    }
+    $photos = $photoRepo->findByEvent($eventId);
+    respond_json(['event' => $eventId, 'photos' => $photos]);
+}
+
+if (preg_match('#^/api/photos/([a-f0-9-]+)$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $uuid = $matches[1];
+    $photo = $photoRepo->findByUuid($uuid);
+    if (!$photo) {
+        respond_not_found();
+    }
+    respond_json($photo);
 }
 
 if (preg_match('#^/e/([a-zA-Z0-9-]+)/gallery$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -223,6 +264,24 @@ if ($uri === '/admin/events') {
     exit;
 }
 
+if (preg_match('#^/admin/events/(\d+)$#', $uri, $matches)) {
+    require_auth();
+    $eventId = (int) $matches[1];
+    $event = $eventRepo->find($eventId);
+    if (!$event) {
+        respond_not_found();
+    }
+    $stats = [
+        'sessions' => $sessionRepo->countByEvent($eventId),
+        'photos' => $photoRepo->countByEvent($eventId),
+        'last_upload' => $photoRepo->latestUploadAt($eventId),
+        'avg_per_session' => $photoRepo->averagePerSession($eventId),
+    ];
+    $sessions = $sessionRepo->findByEvent($eventId);
+    render('admin_event_detail', ['event' => $event, 'stats' => $stats, 'sessions' => $sessions]);
+    exit;
+}
+
 if (preg_match('#^/admin/events/(\d+)/photos$#', $uri, $matches)) {
     require_auth();
     $eventId = (int)$matches[1];
@@ -231,12 +290,38 @@ if (preg_match('#^/admin/events/(\d+)/photos$#', $uri, $matches)) {
         respond_not_found();
     }
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $code = preg_replace('/[^a-zA-Z0-9]/', '', $_POST['delete_code'] ?? '');
-        if ($code) {
-            $photoRepo->deleteByCode($code);
+        $action = $_POST['action'] ?? '';
+        if ($action === 'delete') {
+            $code = preg_replace('/[^a-zA-Z0-9]/', '', $_POST['delete_code'] ?? '');
+            if ($code) {
+                $photoRepo->deleteByCode($code);
+            }
+            header('Location: ' . base_url('admin/events/' . $eventId . '/photos'));
+            exit;
         }
-        header('Location: ' . base_url('admin/events/' . $eventId . '/photos'));
-        exit;
+        if ($action === 'export') {
+            $selected = array_map('intval', $_POST['photo_ids'] ?? []);
+            $photos = $selected ? $photoRepo->findByIdsForEvent($eventId, $selected) : $photoRepo->findByEvent($eventId);
+            if (empty($photos)) {
+                header('Location: ' . base_url('admin/events/' . $eventId . '/photos'));
+                exit;
+            }
+            $zip = new ZipArchive();
+            $tmp = tempnam(sys_get_temp_dir(), 'photos_') . '.zip';
+            $zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+            foreach ($photos as $photo) {
+                if (is_file($photo['file_path'])) {
+                    $zip->addFile($photo['file_path'], basename($photo['file_path']));
+                }
+            }
+            $zip->close();
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="event-' . $eventId . '-photos.zip"');
+            header('Content-Length: ' . filesize($tmp));
+            readfile($tmp);
+            unlink($tmp);
+            exit;
+        }
     }
     $photos = $photoRepo->findByEvent($eventId);
     render('admin_photos', ['event' => $event, 'photos' => $photos]);

@@ -4,6 +4,8 @@ const takeBtn = document.getElementById('take-photo');
 const preview = document.getElementById('camera-preview');
 const canvas = document.getElementById('camera-canvas');
 const toast = document.getElementById('toast');
+const uploadStatus = document.getElementById('upload-status');
+const uploadStatusText = document.getElementById('upload-status-text');
 let stream = null;
 let remaining = window.CAM_CONFIG?.remaining ?? 0;
 
@@ -45,13 +47,20 @@ async function takePhoto() {
     canvas.height = height;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(preview, 0, 0, width, height);
+    preview.classList.add('flash');
+    setTimeout(() => preview.classList.remove('flash'), 350);
     canvas.toBlob(async (blob) => {
         if (!blob) return;
         const formData = new FormData();
         formData.append('photo', blob, 'photo.jpg');
         formData.append('session_token', window.CAM_CONFIG.sessionToken);
         takeBtn.disabled = true;
-        showToast('Lade hoch ...');
+        if (uploadStatus && uploadStatusText) {
+            uploadStatusText.textContent = 'Foto wird hochgeladen…';
+            uploadStatus.classList.remove('hidden');
+        } else {
+            showToast('Lade hoch ...');
+        }
         try {
             const res = await fetch(window.CAM_CONFIG.uploadUrl, {
                 method: 'POST',
@@ -60,6 +69,9 @@ async function takePhoto() {
             const json = await res.json();
             if (json.success) {
                 updateRemaining(remaining - 1);
+                if (uploadStatus && uploadStatusText) {
+                    uploadStatusText.textContent = 'Gespeichert! Löschcode: ' + json.delete_code;
+                }
                 showToast('Foto gespeichert. Löschcode: ' + json.delete_code);
             } else {
                 showToast(json.error || 'Upload fehlgeschlagen.');
@@ -67,6 +79,9 @@ async function takePhoto() {
         } catch (err) {
             showToast('Upload nicht möglich.');
         } finally {
+            if (uploadStatus) {
+                setTimeout(() => uploadStatus.classList.add('hidden'), 1200);
+            }
             if (remaining > 0) takeBtn.disabled = !consent.checked;
         }
     }, 'image/jpeg', 0.9);

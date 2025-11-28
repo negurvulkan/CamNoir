@@ -48,6 +48,47 @@ class PhotoRepository
         return $stmt->fetchAll();
     }
 
+    public function countByEvent(int $eventId): int
+    {
+        $stmt = Database::connection()->prepare('SELECT COUNT(*) AS cnt FROM photos WHERE event_id = :event_id');
+        $stmt->execute(['event_id' => $eventId]);
+        return (int) ($stmt->fetch()['cnt'] ?? 0);
+    }
+
+    public function latestUploadAt(int $eventId): ?string
+    {
+        $stmt = Database::connection()->prepare('SELECT created_at FROM photos WHERE event_id = :event_id ORDER BY created_at DESC LIMIT 1');
+        $stmt->execute(['event_id' => $eventId]);
+        $row = $stmt->fetch();
+        return $row['created_at'] ?? null;
+    }
+
+    public function findByIdsForEvent(int $eventId, array $photoIds): array
+    {
+        if (empty($photoIds)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($photoIds), '?'));
+        $stmt = Database::connection()->prepare("SELECT * FROM photos WHERE event_id = ? AND id IN ($placeholders)");
+        $stmt->execute(array_merge([$eventId], $photoIds));
+        return $stmt->fetchAll();
+    }
+
+    public function averagePerSession(int $eventId): float
+    {
+        $stmt = Database::connection()->prepare('SELECT AVG(photo_count) AS avg_photos FROM sessions WHERE event_id = :event_id');
+        $stmt->execute(['event_id' => $eventId]);
+        return (float) ($stmt->fetch()['avg_photos'] ?? 0.0);
+    }
+
+    public function findByUuid(string $uuid): ?array
+    {
+        $stmt = Database::connection()->prepare('SELECT * FROM photos WHERE picture_uuid = :uuid');
+        $stmt->execute(['uuid' => $uuid]);
+        $photo = $stmt->fetch();
+        return $photo ?: null;
+    }
+
     public function deleteOlderThan(int $eventId, int $days): int
     {
         $db = Database::connection();

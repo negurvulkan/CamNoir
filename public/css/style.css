@@ -54,6 +54,16 @@ table th, table td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.0
 .photos { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .photo { background: var(--card); padding: 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); }
 .photo img { width: 100%; border-radius: 6px; }
+.qr-preview { margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+.qr-preview svg, .qr-preview canvas { background: #fff; padding: 6px; border-radius: 12px; }
+.table-wrapper { overflow-x: auto; }
+.upload-status { margin-top: 8px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.flash { animation: flash 0.4s ease; }
+@keyframes flash {
+    0% { filter: brightness(1); }
+    20% { filter: brightness(1.4); }
+    100% { filter: brightness(1); }
+}
 .gallery-grid { margin-top: 12px; }
 .gallery-grid .photo { display: flex; flex-direction: column; gap: 6px; }
 .gallery-grid .photo img { cursor: zoom-in; }
