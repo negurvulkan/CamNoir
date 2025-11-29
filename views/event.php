@@ -10,6 +10,10 @@ $stickers = [];
 $frames = [];
 $overlayCategories = [];
 $colorFilters = merge_color_filters($event['color_filters'] ?? null);
+$unlockables = $unlockables ?? [];
+$slugify = function (string $value): string {
+    return trim(preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($value)), '-') ?: 'item';
+};
 $fonts = [
     ['name' => 'Arial', 'url' => null],
 ];
@@ -18,6 +22,31 @@ if (is_dir($stickerDir)) {
         $stickers[] = base_url('stickers/' . basename($file));
     }
 }
+$unlockedOverlays = [];
+foreach ($unlockables as $item) {
+    if ($item['type'] === 'sticker' && !empty($item['asset_path'])) {
+        $stickers[] = base_url(ltrim($item['asset_path'], '/'));
+    }
+    if ($item['type'] === 'frame' && !empty($item['asset_path'])) {
+        $frames[] = base_url(ltrim($item['asset_path'], '/'));
+    }
+    if ($item['type'] === 'overlay' && !empty($item['asset_path'])) {
+        $slug = $slugify($item['name'] ?? 'overlay');
+        $unlockedOverlays[] = [
+            'id' => 'unlock-' . $slug,
+            'name' => ($item['name'] ?? 'Overlay') . ' (Bonus)',
+            'src' => base_url(ltrim($item['asset_path'], '/')),
+        ];
+    }
+    if ($item['type'] === 'filter' && !empty($item['css_filter'])) {
+        $colorFilters[] = [
+            'id' => 'unlock-' . $slugify($item['name'] ?? 'filter'),
+            'name' => ($item['name'] ?? 'Filter') . ' (Bonus)',
+            'css' => sanitize_color_filter_css($item['css_filter']),
+        ];
+    }
+}
+$colorFilters = array_values(array_unique($colorFilters, SORT_REGULAR));
 if (is_dir($frameDir)) {
     foreach (glob($frameDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
         $frames[] = base_url('frames/' . basename($file));
@@ -74,6 +103,14 @@ if (is_dir($overlayDir)) {
             'overlays' => $buildOverlayList($overlayDir, '', ''),
         ];
     }
+}
+$overlayCategories = array_values($overlayCategories);
+if (!empty($unlockedOverlays)) {
+    $overlayCategories[] = [
+        'id' => 'unlocked-overlays',
+        'name' => 'Freigeschaltet',
+        'overlays' => $unlockedOverlays,
+    ];
 }
 $fontDir = __DIR__ . '/../public/fonts';
 if (is_dir($fontDir)) {

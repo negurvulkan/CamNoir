@@ -1020,6 +1020,60 @@ const redeemErrorMessages = {
     event_not_found: 'Event nicht gefunden.',
 };
 
+function addUnlockedItems(items) {
+    if (!Array.isArray(items)) return;
+    const firstOverlaySlider = document.querySelector('[data-overlay-slider]');
+    const overlayCategoryId = firstOverlaySlider?.getAttribute('data-overlay-slider') || overlayCategories[0]?.id || 'alle-overlays';
+
+    items.forEach((item) => {
+        if (item.type === 'sticker' && item.asset_path && stickerPalette) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'sticker-btn';
+            btn.dataset.src = item.asset_path;
+            const img = document.createElement('img');
+            img.src = item.asset_path;
+            img.alt = item.name || 'Sticker';
+            btn.appendChild(img);
+            stickerPalette.appendChild(btn);
+        }
+
+        if (item.type === 'frame' && item.asset_path && framePalette) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'sticker-btn frame-btn';
+            btn.dataset.src = item.asset_path;
+            const img = document.createElement('img');
+            img.src = item.asset_path;
+            img.alt = item.name || 'Rahmen';
+            btn.appendChild(img);
+            framePalette.appendChild(btn);
+        }
+
+        if (item.type === 'overlay' && item.asset_path && firstOverlaySlider) {
+            const overlayId = `bonus-${item.id}`;
+            overlayFilters.push({ id: overlayId, name: `${item.name || 'Overlay'} (Bonus)`, src: item.asset_path, category: overlayCategoryId });
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'overlay-thumb overlay-btn';
+            btn.dataset.overlayId = overlayId;
+            btn.dataset.overlayCategory = overlayCategoryId;
+            btn.innerHTML = `<img src="${item.asset_path}" alt="${item.name || 'Overlay'}" /><span class="overlay-thumb-label">${item.name || 'Overlay'} (Bonus)</span>`;
+            firstOverlaySlider.appendChild(btn);
+            updateOverlayFilterButtons();
+        }
+
+        if (item.type === 'filter' && item.css_filter && colorFilterSelect) {
+            const filterId = `bonus-${item.id}`;
+            colorFilters.push({ id: filterId, name: `${item.name || 'Filter'} (Bonus)`, css: item.css_filter });
+            const option = document.createElement('option');
+            option.value = filterId;
+            option.textContent = `${item.name || 'Filter'} (Bonus)`;
+            colorFilterSelect.appendChild(option);
+        }
+    });
+}
+
 bonusCodeForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!bonusCodeInput) return;
@@ -1038,12 +1092,19 @@ bonusCodeForm?.addEventListener('submit', async (e) => {
         const res = await fetch(window.CAM_CONFIG?.redeemUrl || '/redeem-code', { method: 'POST', body: formData });
         const json = await res.json();
         if (json.success) {
-            const granted = Number(json.extra_photos || 0);
-            extraPhotos += granted;
-            updateRemaining(Number(json.remaining ?? remaining));
-            updateLimitsDisplay();
-            setCodeFeedback(`+${granted} Fotos freigeschaltet.`, true);
-            showToast('Bonus aktiviert!');
+            const unlockedItems = Array.isArray(json.unlocked_items) ? json.unlocked_items : [];
+            if (unlockedItems.length) {
+                addUnlockedItems(unlockedItems);
+                setCodeFeedback(`Bonus-Inhalte freigeschaltet (${unlockedItems.length}).`, true);
+                showToast('Neue Sticker & Filter verfügbar!');
+            } else {
+                const granted = Number(json.extra_photos || 0);
+                extraPhotos += granted;
+                updateRemaining(Number(json.remaining ?? remaining));
+                updateLimitsDisplay();
+                setCodeFeedback(`+${granted} Fotos freigeschaltet.`, true);
+                showToast('Bonus aktiviert!');
+            }
             bonusCodeInput.value = '';
         } else {
             const msg = redeemErrorMessages[json.error] || 'Code konnte nicht eingelöst werden.';
