@@ -95,19 +95,6 @@ $themeStyles = theme_style_block($theme);
                     <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="stickers">Sticker</button>
                     <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="text">Text</button>
                 </div>
-                <div class="canvas-top">
-                    <p class="muted small">Overlay-Filter</p>
-                    <div class="pill-group">
-                        <label class="pill">
-                            <input type="radio" name="overlay-scope" value="photo" checked />
-                            <span>Nur Foto</span>
-                        </label>
-                        <label class="pill">
-                            <input type="radio" name="overlay-scope" value="composition" />
-                            <span>Gesamte Komposition</span>
-                        </label>
-                    </div>
-                </div>
                 <canvas id="editor-canvas"></canvas>
             </div>
             <div class="tab-shell">
@@ -129,6 +116,22 @@ $themeStyles = theme_style_block($theme);
                                 <div class="tool-header">
                                     <p class="muted small">Overlay-Filter (PNG-Texturen)</p>
                                     <p class="muted small">Kann über dem Foto oder der ganzen Komposition liegen.</p>
+                                </div>
+                                <div class="tool-row overlay-scope-row">
+                                    <div class="tool-header">
+                                        <p class="muted small">Overlay-Filter Bereich</p>
+                                        <p class="muted small">Wirkt auf das Foto oder die gesamte Komposition.</p>
+                                    </div>
+                                    <div class="pill-group">
+                                        <label class="pill">
+                                            <input type="radio" name="overlay-scope" value="photo" checked />
+                                            <span>Nur Foto</span>
+                                        </label>
+                                        <label class="pill">
+                                            <input type="radio" name="overlay-scope" value="composition" />
+                                            <span>Gesamte Komposition</span>
+                                        </label>
+                                    </div>
                                 </div>
                                 <div id="overlay-filter-palette" class="sticker-palette overlay-palette">
                                     <button type="button" class="sticker-btn overlay-btn" data-overlay-id="none">Kein Overlay</button>
