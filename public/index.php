@@ -467,6 +467,101 @@ if ($uri === '/admin/events') {
     exit;
 }
 
+if ($uri === '/admin/unlock-items') {
+    require_auth();
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $action = $_POST['action'] ?? 'save';
+        $id = (int)($_POST['id'] ?? 0);
+
+        if ($action === 'delete' && $id > 0) {
+            $unlockItemRepo->delete($id);
+            header('Location: ' . base_url('admin/unlock-items'));
+            exit;
+        }
+
+        $name = trim($_POST['name'] ?? '');
+        $type = $_POST['type'] ?? 'sticker';
+        $rarity = $_POST['rarity'] ?? null;
+        $eventIdInput = trim($_POST['event_id'] ?? '');
+        $eventId = $eventIdInput === '' ? null : (int)$eventIdInput;
+        $assetPath = trim($_POST['asset_path'] ?? '');
+        $cssFilter = sanitize_color_filter_css($_POST['css_filter'] ?? '');
+
+        if ($name !== '') {
+            $data = [
+                'name' => $name,
+                'type' => $type,
+                'rarity' => $rarity,
+                'event_id' => $eventId,
+                'asset_path' => $assetPath !== '' ? $assetPath : null,
+                'css_filter' => $cssFilter !== '' ? $cssFilter : null,
+            ];
+
+            if ($id > 0) {
+                $unlockItemRepo->update($id, $data);
+            } else {
+                $unlockItemRepo->create($data);
+            }
+        }
+
+        header('Location: ' . base_url('admin/unlock-items'));
+        exit;
+    }
+
+    $events = $eventRepo->findAll();
+    $items = $unlockItemRepo->findAllWithEvent();
+    render('admin_unlock_items', ['items' => $items, 'events' => $events]);
+    exit;
+}
+
+if ($uri === '/admin/unlock-codes') {
+    require_auth();
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $action = $_POST['action'] ?? 'save';
+        $id = (int)($_POST['id'] ?? 0);
+
+        if ($action === 'delete' && $id > 0) {
+            $unlockCodeRepo->delete($id);
+            header('Location: ' . base_url('admin/unlock-codes'));
+            exit;
+        }
+
+        $codeValue = strtoupper(preg_replace('/[^A-Z0-9-]/', '', $_POST['code'] ?? ''));
+        $description = trim($_POST['description'] ?? '');
+        $type = $_POST['type'] ?? 'single_use';
+        $expiresRaw = trim($_POST['expires_at'] ?? '');
+        $expiresAt = $expiresRaw !== '' ? $expiresRaw : null;
+        $eventIdInput = trim($_POST['event_id'] ?? '');
+        $eventId = $eventIdInput === '' ? null : (int)$eventIdInput;
+        $itemIds = array_unique(array_map('intval', $_POST['item_ids'] ?? []));
+
+        if ($codeValue !== '') {
+            $data = [
+                'code' => $codeValue,
+                'description' => $description !== '' ? $description : null,
+                'type' => $type,
+                'expires_at' => $expiresAt,
+                'event_id' => $eventId,
+            ];
+
+            if ($id > 0) {
+                $unlockCodeRepo->update($id, $data, $itemIds);
+            } else {
+                $unlockCodeRepo->create($data, $itemIds);
+            }
+        }
+
+        header('Location: ' . base_url('admin/unlock-codes'));
+        exit;
+    }
+
+    $events = $eventRepo->findAll();
+    $items = $unlockItemRepo->findAllWithEvent();
+    $codes = $unlockCodeRepo->findAllWithDetails();
+    render('admin_unlock_codes', ['codes' => $codes, 'events' => $events, 'items' => $items]);
+    exit;
+}
+
 if (preg_match('#^/admin/events/(\d+)/bonus-codes$#', $uri, $matches)) {
     require_auth();
     $eventId = (int) $matches[1];
