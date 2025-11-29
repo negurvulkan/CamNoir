@@ -3,19 +3,19 @@
 Minimalistische Web-App, mit der Besucher:innen per QR-Code eine digitale Einwegkamera verwenden können. Implementiert mit PHP/MySQL, Vanilla JS und einem kleinen Admin-Bereich.
 
 ## Features
-1. Eventbasierte Einwegkamera mit QR-Code-Zugriff für Gäste.
-2. Session-Verwaltung pro Endgerät inklusive optionaler Session-Löschung.
-3. Foto-Upload mit Löschcode, der ins Bild gerendert wird.
-4. Einfügen von Text (verschiedene Fonts), Stickern und Rahmen.
-5. Readonly-Galerie pro Event (optional öffentlich erreichbar).
-6. Einzel- und Mehrfachlöschung über Löschcode oder Session-Reset.
-7. Admin-Login mit Passwort aus `.env` für geschützten Zugriff.
-8. Admin-Oberfläche zum Anlegen, Bearbeiten und Deaktivieren von Events.
-9. Optisches Theming der Events
-10. Admin-Ansicht zum Durchstöbern und Löschen von Event-Fotos.
-11. Konfigurierbare Auto-Löschung alter Fotos per Cron-Job.
-12. Platzhalterseite für Datenschutzerklärung.
-13. Keine Speicherung personenbezogener Daten; reine Gastnutzung ohne Konten.
+1. Eventbasierte Einwegkamera mit QR-Code-Zugriff und Session-Verwaltung pro Endgerät (inkl. Reset).
+2. Foto-Upload mit Löschcode-Watermark und Editor für Farbfilter, Overlays, Sticker, Rahmen & mehrere Fonts.
+3. Bonus-Codes pro Event, um zusätzliche Fotos freizuschalten (single use, per session, unlimited, optional Ablauf/Limit).
+4. Readonly-Galerie und Live-Diashow je Event; nur freigegebene Fotos, optional öffentlich.
+5. Lösch-Workflow: Foto- oder Session-Löschung per Code sowie Löschanträge mit Admin-Prüfung.
+6. Admin-Login mit Passwort aus `.env` für geschützten Zugriff.
+7. Event-Management im Admin: Anlegen/Bearbeiten/Deaktivieren, Auto-Freigabe, Banner & Frame-Branding.
+8. Theming & Filter: konfigurierbare Farbschemata, zusätzliche CSS-Farbfilter und Overlay-Assets pro Event.
+9. Admin-Fototools: Freigeben/Sperren, Löschanträge reviewen, Foto-Export (ZIP) und Löschcode-Handling.
+10. Bonus-Code-Übersicht im Admin inkl. Nutzungshistorie pro Session.
+11. Event-Dashboards mit Statistiken, Delete-Log und QR-Code-Generator.
+12. Konfigurierbare Auto-Löschung alter Fotos per Cron-Job.
+13. Platzhalterseite für Datenschutzerklärung & keine Speicherung personenbezogener Daten.
 
 ## Setup
 1. Kopiere `.env.example` zu `.env` und passe Datenbank & Admin-Passwort an.
