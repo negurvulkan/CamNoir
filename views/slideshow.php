@@ -11,7 +11,7 @@ body { background: #030308; color: #f5f5f5; }
 <h1>Live-Diashow: <?= sanitize_text($event['name']) ?></h1>
 <p class="muted">Nur freigegebene Fotos werden angezeigt. Die Ansicht aktualisiert automatisch.</p>
 <div class="card slideshow">
-    <img id="slideshow-image" src="<?= !empty($photos) ? base_url(str_replace(__DIR__ . '/../', '', $photos[0]['file_path'])) : '' ?>" alt="Slideshow Bild">
+    <img id="slideshow-image" src="<?= !empty($photos) ? base_url(str_replace(__DIR__ . '/../public/', '', $photos[0]['file_path'])) : '' ?>" alt="Slideshow Bild">
     <div class="meta" id="slideshow-meta"></div>
 </div>
 <script>
