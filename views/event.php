@@ -6,7 +6,7 @@ $frameDir = __DIR__ . '/../public/frames';
 $overlayDir = __DIR__ . '/../public/overlays';
 $stickers = [];
 $frames = [];
-$overlayFilters = [];
+$overlayCategories = [];
 $colorFilters = merge_color_filters($event['color_filters'] ?? null);
 $fonts = [
     ['name' => 'Arial', 'url' => null],
@@ -22,12 +22,54 @@ if (is_dir($frameDir)) {
     }
 }
 if (is_dir($overlayDir)) {
-    foreach (glob($overlayDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
-        $name = preg_replace('/[-_]+/', ' ', pathinfo($file, PATHINFO_FILENAME));
-        $overlayFilters[] = [
-            'id' => pathinfo($file, PATHINFO_FILENAME),
-            'name' => ucwords($name ?: 'Overlay'),
-            'src' => base_url('overlays/' . basename($file)),
+    $subFolders = array_filter(glob($overlayDir . '/*'), 'is_dir');
+    $rootOverlays = glob($overlayDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE);
+
+    $normalizeName = function (string $filename): string {
+        $name = preg_replace('/[-_]+/', ' ', pathinfo($filename, PATHINFO_FILENAME));
+        return ucwords($name ?: 'Overlay');
+    };
+
+    $buildOverlayList = function (string $dir, string $categoryId = '', string $categoryPath = '') use ($normalizeName): array {
+        $items = [];
+        foreach (glob($dir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
+            $fileName = pathinfo($file, PATHINFO_FILENAME);
+            $slug = trim(preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($fileName)), '-');
+            $items[] = [
+                'id' => ($categoryId ? $categoryId . '-' : '') . ($slug ?: $fileName),
+                'name' => $normalizeName($file),
+                'src' => base_url('overlays/' . ($categoryPath ? $categoryPath . '/' : '') . basename($file)),
+            ];
+        }
+        return $items;
+    };
+
+    if (!empty($subFolders)) {
+        foreach ($subFolders as $folder) {
+            $folderName = basename($folder);
+            $categorySlug = trim(preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($folderName)), '-');
+            $overlays = $buildOverlayList($folder, $categorySlug ?: $folderName, $folderName);
+            if (!empty($overlays)) {
+                $overlayCategories[] = [
+                    'id' => $categorySlug ?: $folderName,
+                    'name' => ucwords(str_replace('-', ' ', $categorySlug ?: $folderName)),
+                    'overlays' => $overlays,
+                ];
+            }
+        }
+
+        if (!empty($rootOverlays)) {
+            array_unshift($overlayCategories, [
+                'id' => 'alle-overlays',
+                'name' => 'Alle Overlays',
+                'overlays' => $buildOverlayList($overlayDir, '', ''),
+            ]);
+        }
+    } elseif (!empty($rootOverlays)) {
+        $overlayCategories[] = [
+            'id' => 'alle-overlays',
+            'name' => 'Alle Overlays',
+            'overlays' => $buildOverlayList($overlayDir, '', ''),
         ];
     }
 }
@@ -120,18 +162,38 @@ $themeStyles = theme_style_block($theme);
                                         </label>
                                     </div>
                                 </div>
-                                <div id="overlay-filter-palette" class="sticker-palette overlay-palette">
-                                    <button type="button" class="sticker-btn overlay-btn" data-overlay-id="none">Kein Overlay</button>
-                                    <?php if (!empty($overlayFilters)): ?>
-                                        <?php foreach ($overlayFilters as $overlay): ?>
-                                            <button type="button" class="sticker-btn overlay-btn" data-overlay-id="<?= sanitize_text($overlay['id']) ?>" data-src="<?= sanitize_text($overlay['src']) ?>">
-                                                <img src="<?= sanitize_text($overlay['src']) ?>" alt="<?= sanitize_text($overlay['name']) ?>" />
-                                            </button>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <p class="muted small">PNG-Texturen in <code>public/overlays</code> ablegen, um sie hier auszuwählen.</p>
-                                    <?php endif; ?>
-                                </div>
+                                <?php if (!empty($overlayCategories)): ?>
+                                    <div class="overlay-browser">
+                                        <div class="overlay-tabs" role="tablist">
+                                            <?php foreach ($overlayCategories as $index => $category): ?>
+                                                <button type="button"
+                                                    class="overlay-tab <?= $index === 0 ? 'active' : '' ?>"
+                                                    role="tab"
+                                                    aria-selected="<?= $index === 0 ? 'true' : 'false' ?>"
+                                                    data-overlay-category-tab="<?= sanitize_text($category['id']) ?>">
+                                                    <?= sanitize_text($category['name']) ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <div id="overlay-filter-palette" class="overlay-slider-shell">
+                                            <?php foreach ($overlayCategories as $index => $category): ?>
+                                                <div class="overlay-slider <?= $index === 0 ? 'active' : 'hidden' ?>" data-overlay-slider="<?= sanitize_text($category['id']) ?>">
+                                                    <button type="button" class="overlay-thumb overlay-btn" data-overlay-id="none" data-src="" data-overlay-category="<?= sanitize_text($category['id']) ?>">
+                                                        <span class="overlay-thumb-label">Kein Overlay</span>
+                                                    </button>
+                                                    <?php foreach ($category['overlays'] as $overlay): ?>
+                                                        <button type="button" class="overlay-thumb overlay-btn" data-overlay-id="<?= sanitize_text($overlay['id']) ?>" data-src="<?= sanitize_text($overlay['src']) ?>" data-overlay-category="<?= sanitize_text($category['id']) ?>">
+                                                            <img src="<?= sanitize_text($overlay['src']) ?>" alt="<?= sanitize_text($overlay['name']) ?>" />
+                                                            <span class="overlay-thumb-label"><?= sanitize_text($overlay['name']) ?></span>
+                                                        </button>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="muted small">PNG-Texturen in <code>public/overlays</code> ablegen, um sie hier auszuwählen.</p>
+                                <?php endif; ?>
                                 <div class="tool-row overlay-scope-row">
                                     <label class="field compact">
                                         <span class="muted small">Blend Mode</span>
@@ -263,7 +325,7 @@ $themeStyles = theme_style_block($theme);
         remaining: <?= $remaining ?>,
         fonts: <?= json_encode($fonts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
         colorFilters: <?= json_encode($colorFilters, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
-        overlayFilters: <?= json_encode($overlayFilters, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+        overlayCategories: <?= json_encode($overlayCategories, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
     };
 </script>
 <script src="<?= base_url('js/app.js') ?>"></script>

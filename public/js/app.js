@@ -19,6 +19,8 @@ const stickerPalette = document.getElementById('sticker-palette');
 const framePalette = document.getElementById('frame-palette');
 const colorFilterSelect = document.getElementById('color-filter-select');
 const overlayFilterPalette = document.getElementById('overlay-filter-palette');
+const overlayCategoryTabs = document.querySelectorAll('[data-overlay-category-tab]');
+const overlaySliders = document.querySelectorAll('[data-overlay-slider]');
 const overlayScopeInputs = document.querySelectorAll('input[name="overlay-scope"]');
 const overlayBlendSelect = document.getElementById('overlay-blend-select');
 const overlayOpacityInput = document.getElementById('overlay-opacity');
@@ -49,10 +51,19 @@ const colorFilters = (window.CAM_CONFIG?.colorFilters?.length ? window.CAM_CONFI
     },
     [{ id: 'none', name: 'Kein Filter', css: 'none' }]
 );
-const overlayFilters = [
-    { id: 'none', name: 'Kein Overlay', src: null },
-    ...(window.CAM_CONFIG?.overlayFilters || [])
-];
+const overlayCategories = (window.CAM_CONFIG?.overlayCategories?.length
+    ? window.CAM_CONFIG.overlayCategories
+    : [{ id: 'alle-overlays', name: 'Alle Overlays', overlays: window.CAM_CONFIG?.overlayFilters || [] }]);
+
+const overlayFilters = overlayCategories.reduce(
+    (list, category) => {
+        (category.overlays || []).forEach((overlay) => {
+            list.push({ ...overlay, category: category.id });
+        });
+        return list;
+    },
+    [{ id: 'none', name: 'Kein Overlay', src: null, category: overlayCategories[0]?.id || 'alle-overlays' }]
+);
 
 let stream = null;
 let videoDevices = [];
@@ -245,19 +256,47 @@ function getActiveColorFilter() {
     return colorFilters.find((filter) => filter.id === selectedColorFilterId) || colorFilters[0];
 }
 
+function getActiveOverlayCategoryId() {
+    const activeSlider = Array.from(overlaySliders || []).find((slider) => !slider.classList.contains('hidden'));
+    return activeSlider?.getAttribute('data-overlay-slider') || overlayCategories[0]?.id;
+}
+
+function setActiveOverlayCategory(categoryId) {
+    const targetId = categoryId || overlayCategories[0]?.id;
+    if (!targetId) return;
+    Array.from(overlayCategoryTabs || []).forEach((tab) => {
+        const isActive = tab.getAttribute('data-overlay-category-tab') === targetId;
+        tab.classList.toggle('active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    Array.from(overlaySliders || []).forEach((slider) => {
+        const isActive = slider.getAttribute('data-overlay-slider') === targetId;
+        slider.classList.toggle('hidden', !isActive);
+        slider.classList.toggle('active', isActive);
+    });
+    updateOverlayFilterButtons();
+}
+
 function updateOverlayFilterButtons() {
     if (!overlayFilterPalette) return;
+    const activeCategoryId = getActiveOverlayCategoryId();
     overlayFilterPalette.querySelectorAll('[data-overlay-id]').forEach((btn) => {
         const isActive = btn.getAttribute('data-overlay-id') === selectedOverlayFilterId;
-        btn.classList.toggle('active', isActive);
+        const slider = btn.closest('[data-overlay-slider]');
+        const matchesCategory = !slider || slider.getAttribute('data-overlay-slider') === activeCategoryId;
+        btn.classList.toggle('active', isActive && matchesCategory);
     });
 }
 
 function setOverlayFilter(filterId) {
     selectedOverlayFilterId = filterId;
     overlayFilterImage = null;
-    updateOverlayFilterButtons();
     const filter = overlayFilters.find((item) => item.id === filterId);
+    if (filter?.category) {
+        setActiveOverlayCategory(filter.category);
+    } else {
+        updateOverlayFilterButtons();
+    }
     if (!filter || !filter.src) {
         renderEditor();
         return;
@@ -684,6 +723,13 @@ tabButtons.forEach((btn) => {
     });
 });
 
+overlayCategoryTabs?.forEach((tab) => {
+    tab.addEventListener('click', () => {
+        const categoryId = tab.getAttribute('data-overlay-category-tab');
+        setActiveOverlayCategory(categoryId);
+    });
+});
+
 startBtn?.addEventListener('click', startCamera);
 switchBtn?.addEventListener('click', switchCamera);
 takeBtn?.addEventListener('click', takePhoto);
@@ -703,6 +749,8 @@ overlayFilterPalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-overlay-id]');
     if (!btn) return;
     const id = btn.getAttribute('data-overlay-id');
+    const categoryId = btn.getAttribute('data-overlay-category');
+    if (categoryId) setActiveOverlayCategory(categoryId);
     setOverlayFilter(id);
 });
 overlayScopeInputs?.forEach((input) => {
@@ -773,6 +821,9 @@ rotateRightBtn?.addEventListener('click', () => modifyRotation(0.1));
 editCancelBtn?.addEventListener('click', cancelEditing);
 editConfirmBtn?.addEventListener('click', finalizeEdit);
 
+if (overlaySliders && overlaySliders.length) {
+    setActiveOverlayCategory(getActiveOverlayCategoryId());
+}
 updateOverlayFilterButtons();
 if (overlayOpacityValue && overlayOpacityInput?.value) {
     overlayOpacityValue.textContent = overlayOpacityInput.value;
