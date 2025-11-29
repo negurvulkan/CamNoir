@@ -5,9 +5,6 @@ CREATE TABLE events (
     description TEXT NULL,
     max_photos_per_session INT DEFAULT 10,
     auto_delete_days INT DEFAULT 30,
-    theme_primary_color VARCHAR(20) NULL,
-    theme_background_pattern TEXT NULL,
-    theme_logo_url VARCHAR(255) NULL,
     frame_branding_text VARCHAR(255) NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL

@@ -9,15 +9,6 @@ if (is_dir($stickerDir)) {
     }
 }
 ?>
-<style>
-:root {
-    --primary: <?= json_encode($event['theme_primary_color'] ?: '#c8a2ff') ?>;
-    --bg-pattern: <?= json_encode($event['theme_background_pattern'] ?: 'radial-gradient(circle at 20% 20%, rgba(200,162,255,0.1), transparent 30%)') ?>;
-}
-body {
-    background: var(--bg-pattern), var(--bg);
-}
-</style>
 <div class="header">
     <div>
         <p class="eyebrow">NRW Noir Disposable Cam</p>
@@ -27,9 +18,6 @@ body {
         <p class="muted small">Event-Galerie ansehen: <a href="<?= base_url('e/' . sanitize_text($event['slug']) . '/gallery') ?>">Zur Übersicht</a></p>
         <p class="muted small">Live-Diashow: <a href="<?= base_url('e/' . sanitize_text($event['slug']) . '/slideshow') ?>">Beamer-Ansicht öffnen</a></p>
     </div>
-    <?php if (!empty($event['theme_logo_url'])): ?>
-        <div><img src="<?= sanitize_text($event['theme_logo_url']) ?>" alt="Logo" style="max-width:160px; max-height:120px;"></div>
-    <?php endif; ?>
 </div>
 
 <section class="card">
