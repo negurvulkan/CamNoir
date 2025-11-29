@@ -6,6 +6,8 @@ $sessionRepo = new SessionRepository();
 $photoRepo = new PhotoRepository();
 $deleteLogRepo = new DeleteLogRepository();
 $bonusCodeRepo = new BonusCodeRepository();
+$unlockCodeRepo = new UnlockCodeRepository();
+$unlockItemRepo = new UnlockItemRepository();
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $base = rtrim(env('BASE_URL', ''), '/');
@@ -50,9 +52,11 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)$#', $uri, $matches) && $_SERVER['REQUEST_ME
     } else {
         $session = $sessionRepo->findByToken($token);
     }
+    $availableUnlockables = $unlockItemRepo->findAvailableForSession((int)$event['id'], (int)$session['id']);
     render('event', [
         'event' => $event,
         'session' => $session,
+        'unlockables' => $availableUnlockables,
     ]);
     exit;
 }
@@ -138,60 +142,112 @@ if ($uri === '/redeem-code' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $bonusCode = $bonusCodeRepo->findByCode($codeInput);
-    if (!$bonusCode) {
+    if ($bonusCode) {
+        if ((int)$bonusCode['event_id'] !== (int)$event['id']) {
+            respond_json(['success' => false, 'error' => 'code_wrong_event']);
+        }
+
+        if ($bonusCode['expires_at'] && strtotime($bonusCode['expires_at']) < time()) {
+            respond_json(['success' => false, 'error' => 'code_expired']);
+        }
+
+        $maxUses = $bonusCode['max_uses'] !== null ? (int)$bonusCode['max_uses'] : null;
+        $usedCount = (int)$bonusCode['used_count'];
+        $type = $bonusCode['type'];
+
+        if ($type === 'single_use' && $usedCount >= ($maxUses ?? 1)) {
+            respond_json(['success' => false, 'error' => 'code_used']);
+        }
+
+        if ($type === 'per_session') {
+            if ($bonusCodeRepo->hasSessionRedemption((int)$bonusCode['id'], (int)$session['id'])) {
+                respond_json(['success' => false, 'error' => 'code_used_session']);
+            }
+            if ($maxUses !== null && $usedCount >= $maxUses) {
+                respond_json(['success' => false, 'error' => 'code_used']);
+            }
+        }
+
+        if ($type === 'unlimited' && $maxUses !== null && $usedCount >= $maxUses) {
+            respond_json(['success' => false, 'error' => 'code_used']);
+        }
+
+        $db = Database::connection();
+        $db->beginTransaction();
+        try {
+            $bonusCodeRepo->incrementUsedCount((int)$bonusCode['id']);
+            $bonusCodeRepo->logSessionRedemption((int)$bonusCode['id'], (int)$session['id']);
+            $sessionRepo->addExtraPhotos((int)$session['id'], (int)$bonusCode['extra_photos']);
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollBack();
+            respond_json(['success' => false, 'error' => 'server_error']);
+        }
+
+        $newExtra = (int)($session['extra_photos'] ?? 0) + (int)$bonusCode['extra_photos'];
+        $remaining = ((int)$event['max_photos_per_session'] + $newExtra) - (int)$session['photo_count'];
+
+        respond_json([
+            'success' => true,
+            'extra_photos' => (int)$bonusCode['extra_photos'],
+            'description' => $bonusCode['description'] ?? null,
+            'remaining' => max($remaining, 0),
+            'type' => $type,
+        ]);
+    }
+
+    $unlockCode = $unlockCodeRepo->findByCode($codeInput);
+    if (!$unlockCode) {
         respond_json(['success' => false, 'error' => 'code_not_found']);
     }
 
-    if ((int)$bonusCode['event_id'] !== (int)$event['id']) {
+    if ($unlockCode['event_id'] !== null && (int)$unlockCode['event_id'] !== (int)$event['id']) {
         respond_json(['success' => false, 'error' => 'code_wrong_event']);
     }
 
-    if ($bonusCode['expires_at'] && strtotime($bonusCode['expires_at']) < time()) {
+    if ($unlockCode['expires_at'] && strtotime($unlockCode['expires_at']) < time()) {
         respond_json(['success' => false, 'error' => 'code_expired']);
     }
 
-    $maxUses = $bonusCode['max_uses'] !== null ? (int)$bonusCode['max_uses'] : null;
-    $usedCount = (int)$bonusCode['used_count'];
-    $type = $bonusCode['type'];
+    $codeType = $unlockCode['type'] ?? 'single_use';
+    $usageCount = $unlockCodeRepo->countUsage((int)$unlockCode['id']);
 
-    if ($type === 'single_use' && $usedCount >= ($maxUses ?? 1)) {
+    if ($codeType === 'single_use' && $usageCount > 0) {
         respond_json(['success' => false, 'error' => 'code_used']);
     }
 
-    if ($type === 'per_session') {
-        if ($bonusCodeRepo->hasSessionRedemption((int)$bonusCode['id'], (int)$session['id'])) {
-            respond_json(['success' => false, 'error' => 'code_used_session']);
-        }
-        if ($maxUses !== null && $usedCount >= $maxUses) {
-            respond_json(['success' => false, 'error' => 'code_used']);
-        }
+    if ($codeType === 'per_session' && $unlockCodeRepo->hasSessionUsage((int)$unlockCode['id'], (int)$session['id'])) {
+        respond_json(['success' => false, 'error' => 'code_used_session']);
     }
 
-    if ($type === 'unlimited' && $maxUses !== null && $usedCount >= $maxUses) {
-        respond_json(['success' => false, 'error' => 'code_used']);
-    }
+    $items = $unlockCodeRepo->findItemsForCode((int)$unlockCode['id']);
+    $itemIds = array_map(fn($item) => (int)$item['id'], $items);
 
     $db = Database::connection();
     $db->beginTransaction();
     try {
-        $bonusCodeRepo->incrementUsedCount((int)$bonusCode['id']);
-        $bonusCodeRepo->logSessionRedemption((int)$bonusCode['id'], (int)$session['id']);
-        $sessionRepo->addExtraPhotos((int)$session['id'], (int)$bonusCode['extra_photos']);
+        $unlockCodeRepo->logUsage((int)$unlockCode['id'], (int)$session['id']);
+        $unlockItemRepo->addUnlockedItems((int)$session['id'], $itemIds);
         $db->commit();
     } catch (Exception $e) {
         $db->rollBack();
         respond_json(['success' => false, 'error' => 'server_error']);
     }
 
-    $newExtra = (int)($session['extra_photos'] ?? 0) + (int)$bonusCode['extra_photos'];
-    $remaining = ((int)$event['max_photos_per_session'] + $newExtra) - (int)$session['photo_count'];
-
     respond_json([
         'success' => true,
-        'extra_photos' => (int)$bonusCode['extra_photos'],
-        'description' => $bonusCode['description'] ?? null,
-        'remaining' => max($remaining, 0),
-        'type' => $type,
+        'unlocked_items' => array_map(function ($item) {
+            return [
+                'id' => (int)$item['id'],
+                'type' => $item['type'],
+                'name' => $item['name'],
+                'asset_path' => $item['asset_path'],
+                'css_filter' => $item['css_filter'],
+                'rarity' => $item['rarity'] ?? null,
+            ];
+        }, $items),
+        'type' => $codeType,
+        'description' => $unlockCode['description'] ?? null,
     ]);
 }
 

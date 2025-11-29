@@ -30,3 +30,5 @@ require_once __DIR__ . '/src/SessionRepository.php';
 require_once __DIR__ . '/src/PhotoRepository.php';
 require_once __DIR__ . '/src/DeleteLogRepository.php';
 require_once __DIR__ . '/src/BonusCodeRepository.php';
+require_once __DIR__ . '/src/UnlockCodeRepository.php';
+require_once __DIR__ . '/src/UnlockItemRepository.php';
