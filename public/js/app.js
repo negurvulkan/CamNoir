@@ -16,6 +16,9 @@ const framePalette = document.getElementById('frame-palette');
 const colorFilterSelect = document.getElementById('color-filter-select');
 const overlayFilterPalette = document.getElementById('overlay-filter-palette');
 const overlayScopeInputs = document.querySelectorAll('input[name="overlay-scope"]');
+const overlayBlendSelect = document.getElementById('overlay-blend-select');
+const overlayOpacityInput = document.getElementById('overlay-opacity');
+const overlayOpacityValue = document.getElementById('overlay-opacity-value');
 const fontSelect = document.getElementById('font-select');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
 const editConfirmBtn = document.getElementById('edit-confirm-btn');
@@ -63,6 +66,8 @@ let selectedColorFilterId = colorFilters[0]?.id || 'none';
 let selectedOverlayFilterId = overlayFilters[0]?.id || 'none';
 let overlayFilterScope = 'photo';
 let overlayFilterImage = null;
+let overlayFilterBlendMode = overlayBlendSelect?.value || 'screen';
+let overlayFilterOpacity = overlayOpacityInput ? Number(overlayOpacityInput.value) / 100 : 0.8;
 
 function showToast(message) {
     toast.textContent = message;
@@ -246,6 +251,8 @@ function drawFilterTexture(scope) {
     if (overlayFilterScope !== scope) return;
     if (!overlayFilterImage) return;
     editorCtx.save();
+    editorCtx.globalCompositeOperation = overlayFilterBlendMode || 'screen';
+    editorCtx.globalAlpha = overlayFilterOpacity ?? 0.8;
     editorCtx.drawImage(overlayFilterImage, 0, 0, editorCanvas.width, editorCanvas.height);
     editorCtx.restore();
 }
@@ -637,6 +644,18 @@ overlayScopeInputs?.forEach((input) => {
         }
     });
 });
+overlayBlendSelect?.addEventListener('change', () => {
+    overlayFilterBlendMode = overlayBlendSelect.value || 'screen';
+    renderEditor();
+});
+overlayOpacityInput?.addEventListener('input', () => {
+    const value = Number(overlayOpacityInput.value);
+    if (!Number.isNaN(value)) {
+        overlayFilterOpacity = Math.min(1, Math.max(0, value / 100));
+        if (overlayOpacityValue) overlayOpacityValue.textContent = value.toString();
+        renderEditor();
+    }
+});
 framePalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-src], [data-clear-frame]');
     if (!btn) return;
@@ -667,6 +686,9 @@ editCancelBtn?.addEventListener('click', cancelEditing);
 editConfirmBtn?.addEventListener('click', finalizeEdit);
 
 updateOverlayFilterButtons();
+if (overlayOpacityValue && overlayOpacityInput?.value) {
+    overlayOpacityValue.textContent = overlayOpacityInput.value;
+}
 if (colorFilterSelect?.value) {
     selectedColorFilterId = colorFilterSelect.value;
 }
