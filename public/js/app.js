@@ -7,6 +7,7 @@ const captureCanvas = document.getElementById('camera-canvas');
 const toast = document.getElementById('toast');
 const uploadStatus = document.getElementById('upload-status');
 const uploadStatusText = document.getElementById('upload-status-text');
+const pageHeader = document.querySelector('.header');
 const cameraView = document.getElementById('camera-view');
 const editorView = document.getElementById('editor-view');
 const editorCanvas = document.getElementById('editor-canvas');
@@ -201,9 +202,11 @@ function toggleViews(editMode) {
     if (editMode) {
         cameraView.classList.add('hidden');
         editorView.classList.remove('hidden');
+        if (pageHeader) pageHeader.classList.add('hidden');
     } else {
         cameraView.classList.remove('hidden');
         editorView.classList.add('hidden');
+        if (pageHeader) pageHeader.classList.remove('hidden');
     }
 }
 
