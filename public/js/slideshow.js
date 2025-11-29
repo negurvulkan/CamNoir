@@ -11,7 +11,7 @@ function showCurrent() {
     }
     const photo = photos[index % photos.length];
     if (photo) {
-        const publicPath = photo.file_path ? photo.file_path.replace(/^.*public\//, '') : '';
+        const publicPath = photo.file_path ? photo.file_path.replace(/^.*public\//, 'public/') : '';
         imageEl.src = publicPath ? `${location.origin}/${publicPath}` : imageEl.src;
         metaEl.textContent = `${photo.delete_code || ''} • ${photo.created_at || ''}`;
     }
