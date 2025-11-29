@@ -1,5 +1,6 @@
 const consent = document.getElementById('consent');
 const startBtn = document.getElementById('start-camera');
+const switchBtn = document.getElementById('switch-camera');
 const takeBtn = document.getElementById('take-photo');
 const preview = document.getElementById('camera-preview');
 const captureCanvas = document.getElementById('camera-canvas');
@@ -22,6 +23,9 @@ const rotateRightBtn = document.getElementById('overlay-rotate-right');
 const availableFonts = window.CAM_CONFIG?.fonts || [{ name: 'Arial', url: null }];
 
 let stream = null;
+let videoDevices = [];
+let currentDeviceIndex = 0;
+let preferredFacingMode = 'environment';
 let remaining = window.CAM_CONFIG?.remaining ?? 0;
 let uploadQueue = JSON.parse(localStorage.getItem('noir_upload_queue') || '[]');
 let overlays = [];
@@ -77,12 +81,63 @@ async function processQueue() {
 window.addEventListener('online', processQueue);
 
 async function startCamera() {
+    await loadVideoDevices();
+    await startCameraWithConstraints();
+}
+
+async function startCameraWithConstraints(deviceId = null) {
+    stopCurrentStream();
+    const constraints = { video: {} };
+    if (deviceId) {
+        constraints.video.deviceId = { exact: deviceId };
+    } else {
+        constraints.video.facingMode = preferredFacingMode;
+    }
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (preview) preview.srcObject = stream;
+        await loadVideoDevices();
+        const activeDeviceId = stream?.getVideoTracks?.()?.[0]?.getSettings?.()?.deviceId;
+        if (activeDeviceId) {
+            const idx = videoDevices.findIndex((device) => device.deviceId === activeDeviceId);
+            if (idx >= 0) currentDeviceIndex = idx;
+        }
+        updateSwitchAvailability();
     } catch (e) {
         showToast('Kamera konnte nicht gestartet werden.');
     }
+}
+
+function stopCurrentStream() {
+    if (!stream) return;
+    stream.getTracks().forEach((track) => track.stop());
+    stream = null;
+}
+
+async function loadVideoDevices() {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    videoDevices = devices.filter((device) => device.kind === 'videoinput');
+    updateSwitchAvailability();
+}
+
+function updateSwitchAvailability() {
+    if (!switchBtn) return;
+    switchBtn.disabled = videoDevices.length <= 1;
+}
+
+async function switchCamera() {
+    if (!videoDevices.length) {
+        await loadVideoDevices();
+    }
+    if (videoDevices.length > 1) {
+        currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+        const nextDevice = videoDevices[currentDeviceIndex];
+        await startCameraWithConstraints(nextDevice.deviceId);
+        return;
+    }
+    preferredFacingMode = preferredFacingMode === 'environment' ? 'user' : 'environment';
+    await startCameraWithConstraints();
 }
 
 function toggleViews(editMode) {
@@ -473,6 +528,7 @@ consent?.addEventListener('change', () => {
 });
 
 startBtn?.addEventListener('click', startCamera);
+switchBtn?.addEventListener('click', switchCamera);
 takeBtn?.addEventListener('click', takePhoto);
 addTextBtn?.addEventListener('click', addTextOverlay);
 stickerPalette?.addEventListener('click', (e) => {
