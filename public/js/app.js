@@ -12,12 +12,14 @@ const editorCanvas = document.getElementById('editor-canvas');
 const addTextBtn = document.getElementById('add-text-btn');
 const stickerPalette = document.getElementById('sticker-palette');
 const framePalette = document.getElementById('frame-palette');
+const fontSelect = document.getElementById('font-select');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
 const editConfirmBtn = document.getElementById('edit-confirm-btn');
 const scaleUpBtn = document.getElementById('overlay-scale-up');
 const scaleDownBtn = document.getElementById('overlay-scale-down');
 const rotateLeftBtn = document.getElementById('overlay-rotate-left');
 const rotateRightBtn = document.getElementById('overlay-rotate-right');
+const availableFonts = window.CAM_CONFIG?.fonts || [{ name: 'Arial', url: null }];
 
 let stream = null;
 let remaining = window.CAM_CONFIG?.remaining ?? 0;
@@ -126,6 +128,9 @@ function setSelected(overlay) {
     overlays.forEach((o) => { o.selected = false; });
     if (overlay) overlay.selected = true;
     selectedOverlay = overlay;
+    if (selectedOverlay?.type === 'text' && fontSelect) {
+        fontSelect.value = selectedOverlay.fontFamily || getSelectedFont();
+    }
     renderEditor();
 }
 
@@ -139,7 +144,8 @@ function drawOverlay(overlay) {
         editorCtx.drawImage(overlay.image, -(overlay.width / 2), -(overlay.height / 2), overlay.width, overlay.height);
     } else if (overlay.type === 'text') {
         const fontSize = overlay.fontSize || 32;
-        editorCtx.font = `bold ${fontSize}px Arial`;
+        const fontFamily = overlay.fontFamily || getSelectedFont();
+        editorCtx.font = `bold ${fontSize}px "${fontFamily}"`;
         editorCtx.textAlign = 'center';
         editorCtx.textBaseline = 'middle';
         editorCtx.fillStyle = 'white';
@@ -254,9 +260,9 @@ function setFrameOverlay(src) {
     img.src = src;
 }
 
-function measureTextWidth(text, fontSize) {
+function measureTextWidth(text, fontSize, fontFamily = getSelectedFont()) {
     if (!editorCtx) return text.length * fontSize * 0.6;
-    editorCtx.font = `bold ${fontSize}px Arial`;
+    editorCtx.font = `bold ${fontSize}px "${fontFamily}"`;
     return editorCtx.measureText(text).width;
 }
 
@@ -265,7 +271,8 @@ function addTextOverlay() {
     const userText = prompt('Text eingeben');
     if (!userText || !userText.trim()) return;
     const fontSize = Math.max(24, Math.round(editorCanvas.width * 0.05));
-    const width = measureTextWidth(userText, fontSize);
+    const fontFamily = getSelectedFont();
+    const width = measureTextWidth(userText, fontSize, fontFamily);
     const overlay = {
         type: 'text',
         text: userText,
@@ -276,6 +283,7 @@ function addTextOverlay() {
         width,
         height: fontSize,
         fontSize,
+        fontFamily,
         selected: false
     };
     overlays.push(overlay);
@@ -328,6 +336,26 @@ function modifyScale(factor) {
 function modifyRotation(delta) {
     if (!selectedOverlay) return;
     selectedOverlay.rotation = (selectedOverlay.rotation || 0) + delta;
+    renderEditor();
+}
+
+function getSelectedFont() {
+    return fontSelect?.value || availableFonts[0]?.name || 'Arial';
+}
+
+async function loadCustomFonts() {
+    const loaders = availableFonts
+        .filter((font) => font.url)
+        .map((font) => {
+            const face = new FontFace(font.name, `url(${font.url})`);
+            return face
+                .load()
+                .then((loaded) => {
+                    document.fonts.add(loaded);
+                })
+                .catch((err) => console.warn('Font konnte nicht geladen werden:', font.name, err));
+        });
+    await Promise.all(loaders);
     renderEditor();
 }
 
@@ -464,6 +492,14 @@ framePalette?.addEventListener('click', (e) => {
     const src = btn.getAttribute('data-src');
     setFrameOverlay(src);
 });
+fontSelect?.addEventListener('change', () => {
+    const fontFamily = getSelectedFont();
+    if (selectedOverlay?.type === 'text') {
+        selectedOverlay.fontFamily = fontFamily;
+        selectedOverlay.width = measureTextWidth(selectedOverlay.text, selectedOverlay.fontSize, fontFamily);
+        renderEditor();
+    }
+});
 editorCanvas?.addEventListener('pointerdown', onPointerDown);
 window.addEventListener('pointermove', onPointerMove);
 window.addEventListener('pointerup', onPointerUp);
@@ -476,3 +512,4 @@ editConfirmBtn?.addEventListener('click', finalizeEdit);
 
 updateRemaining(remaining);
 processQueue();
+loadCustomFonts();

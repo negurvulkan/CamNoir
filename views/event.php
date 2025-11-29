@@ -5,6 +5,9 @@ $stickerDir = __DIR__ . '/../public/stickers';
 $frameDir = __DIR__ . '/../public/frames';
 $stickers = [];
 $frames = [];
+$fonts = [
+    ['name' => 'Arial', 'url' => null],
+];
 if (is_dir($stickerDir)) {
     foreach (glob($stickerDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
         $stickers[] = base_url('stickers/' . basename($file));
@@ -13,6 +16,19 @@ if (is_dir($stickerDir)) {
 if (is_dir($frameDir)) {
     foreach (glob($frameDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
         $frames[] = base_url('frames/' . basename($file));
+    }
+}
+$fontDir = __DIR__ . '/../public/fonts';
+if (is_dir($fontDir)) {
+    foreach (glob($fontDir . '/*.ttf') as $file) {
+        $fontName = preg_replace('/[^A-Za-z0-9 _-]/', '', pathinfo($file, PATHINFO_FILENAME));
+        if (!$fontName) {
+            $fontName = pathinfo($file, PATHINFO_FILENAME);
+        }
+        $fonts[] = [
+            'name' => $fontName,
+            'url' => base_url('fonts/' . basename($file)),
+        ];
     }
 }
 ?>
@@ -78,6 +94,17 @@ if (is_dir($frameDir)) {
                         <p class="muted small">Noch keine Sticker hochgeladen.</p>
                     <?php endif; ?>
                 </div>
+                <div class="tool-header">
+                    <p class="muted small">Schriftart wählen</p>
+                    <p class="muted small">.ttf-Dateien können in <code>public/fonts</code> abgelegt werden.</p>
+                </div>
+                <div class="tool-row">
+                    <select id="font-select" class="font-select">
+                        <?php foreach ($fonts as $font): ?>
+                            <option value="<?= sanitize_text($font['name']) ?>"><?= sanitize_text($font['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="tool-row">
                     <button id="add-text-btn" class="secondary" type="button">Text hinzufügen</button>
                     <div class="transform-buttons">
@@ -108,7 +135,8 @@ if (is_dir($frameDir)) {
     window.CAM_CONFIG = {
         uploadUrl: "<?= base_url('e/' . sanitize_text($event['slug']) . '/upload') ?>",
         sessionToken: "<?= sanitize_text($session['session_token']) ?>",
-        remaining: <?= $remaining ?>
+        remaining: <?= $remaining ?>,
+        fonts: <?= json_encode($fonts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
     };
 </script>
 <script src="<?= base_url('js/app.js') ?>"></script>
