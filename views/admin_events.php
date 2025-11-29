@@ -6,6 +6,10 @@ $colorFilterExamples = "Monochrom | grayscale(1) contrast(1.05)\nWarm Glow | sep
     <h1>Events</h1>
     <a href="<?= base_url('admin/logout') ?>" class="secondary">Logout</a>
 </div>
+<div class="flex" style="gap: 10px; margin-bottom: 10px;">
+    <a class="secondary" href="<?= base_url('admin/unlock-items') ?>">Items verwalten</a>
+    <a class="secondary" href="<?= base_url('admin/unlock-codes') ?>">Item-Codes</a>
+</div>
 <section class="card">
     <h2>Event anlegen/aktualisieren</h2>
     <form method="POST" class="grid">
