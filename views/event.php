@@ -117,6 +117,23 @@ $themeStyles = theme_style_block($theme);
                         <span>Gesamte Komposition</span>
                     </label>
                 </div>
+                <div class="tool-row">
+                    <label>
+                        <span class="muted small">Blend Mode</span><br />
+                        <select id="overlay-blend-select" class="font-select">
+                            <option value="screen">Screen</option>
+                            <option value="multiply">Multiply</option>
+                            <option value="overlay">Overlay</option>
+                            <option value="lighten">Lighten</option>
+                            <option value="darken">Darken</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span class="muted small">Transparenz</span><br />
+                        <input id="overlay-opacity" type="range" min="0" max="100" value="80" />
+                        <span class="muted small"><span id="overlay-opacity-value">80</span>%</span>
+                    </label>
+                </div>
                 <div class="tool-header">
                     <p class="muted small">Rahmen hinzufügen</p>
                     <p class="muted small">Wähle einen Rahmen, der über dem Foto liegt.</p>
