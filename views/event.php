@@ -121,11 +121,12 @@ $themeStyles = theme_style_block($theme);
     </div>
 
     <div id="editor-view" class="hidden">
-        <p class="muted small">Zuerst Filter wählen, dann Rahmen, Sticker oder Text platzieren.</p>
+        <p class="muted small">Zuerst Bild anpassen und danach Filter, Rahmen, Sticker oder Text platzieren.</p>
         <div class="editor-layout tabbed-editor">
             <div class="editor-canvas-shell">
                 <div class="tab-list tab-list-floating" role="tablist">
-                    <button class="tab-btn active" role="tab" aria-selected="true" data-tab-target="filter">Filter</button>
+                    <button class="tab-btn active" role="tab" aria-selected="true" data-tab-target="image">Bild</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="filter">Filter</button>
                     <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="frames">Rahmen</button>
                     <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="stickers">Sticker</button>
                     <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="text">Text</button>
@@ -134,6 +135,34 @@ $themeStyles = theme_style_block($theme);
             </div>
             <div class="tab-shell">
                 <div class="tab-panels">
+                    <div class="tab-panel" data-tab-panel="image">
+                        <div class="tool-header">
+                            <p class="muted small">Bildanpassung</p>
+                            <p class="muted small">Wird direkt auf das Foto angewendet, bevor Filter, Sticker oder Rahmen gerendert werden.</p>
+                        </div>
+                        <div class="panel-grid">
+                            <div class="panel-card">
+                                <label class="field compact">
+                                    <span class="muted small">Helligkeit</span>
+                                    <input id="brightness-range" type="range" min="-100" max="100" value="0" />
+                                    <span class="muted small"><span id="brightness-value">0</span></span>
+                                </label>
+                                <p class="muted small">Dunkler bis heller. Basiswert = 0.</p>
+                            </div>
+                            <div class="panel-card">
+                                <label class="field compact">
+                                    <span class="muted small">Kontrast</span>
+                                    <input id="contrast-range" type="range" min="-100" max="100" value="0" />
+                                    <span class="muted small"><span id="contrast-value">0</span></span>
+                                </label>
+                                <p class="muted small">Flacher bis kräftiger Kontrast. Basiswert = 0.</p>
+                            </div>
+                            <div class="panel-card actions-row">
+                                <button id="adjustment-reset-btn" class="secondary" type="button">Reset</button>
+                                <p class="muted small">Setzt alle Bildanpassungen zurück.</p>
+                            </div>
+                        </div>
+                    </div>
                     <div class="tab-panel" data-tab-panel="filter">
                         <div class="panel-grid">
                             <div class="panel-card">
