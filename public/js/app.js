@@ -11,6 +11,8 @@ const cameraView = document.getElementById('camera-view');
 const editorView = document.getElementById('editor-view');
 const editorCanvas = document.getElementById('editor-canvas');
 const torchBtn = document.getElementById('toggle-torch');
+const uploadBtn = document.getElementById('upload-photo');
+const uploadInput = document.getElementById('upload-input');
 const tabButtons = document.querySelectorAll('[data-tab-target]');
 const tabPanels = document.querySelectorAll('[data-tab-panel]');
 const transformPanel = document.getElementById('transform-panel');
@@ -94,6 +96,7 @@ let dragStart = { x: 0, y: 0 };
 let backgroundImage = null;
 let torchEnabled = false;
 let torchSupported = false;
+let cameraUnavailable = false;
 const editorCtx = editorCanvas ? editorCanvas.getContext('2d') : null;
 const stickerCache = new Map();
 const frameCache = new Map();
@@ -110,14 +113,28 @@ let imageAdjustments = { ...adjustmentDefaults };
 const adjustedBaseCanvas = document.createElement('canvas');
 const adjustedBaseCtx = adjustedBaseCanvas.getContext('2d');
 let adjustedBackgroundImage = null;
+const MAX_IMPORT_DIMENSION = 2000;
 
 function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
 
 function updateTakeButtonAvailability() {
-    if (!takeBtn) return;
-    takeBtn.disabled = remaining <= 0;
+    const captureDisabled = remaining <= 0;
+    const cameraReady = Boolean(stream) && !cameraUnavailable;
+    const uploadPrimary = cameraUnavailable;
+
+    if (takeBtn) {
+        takeBtn.disabled = captureDisabled || !cameraReady;
+        takeBtn.classList.toggle('primary', cameraReady);
+        takeBtn.classList.toggle('secondary', !cameraReady);
+    }
+
+    if (uploadBtn) {
+        uploadBtn.disabled = captureDisabled;
+        uploadBtn.classList.toggle('primary', uploadPrimary);
+        uploadBtn.classList.toggle('secondary', !uploadPrimary);
+    }
 }
 
 function updateLimitsDisplay() {
@@ -142,6 +159,46 @@ function updateRemaining(count) {
     updateLimitsDisplay();
     updateTakeButtonAvailability();
     if (remaining <= 0) showToast('Limit erreicht.');
+}
+
+function loadImageFromSource(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Bild konnte nicht geladen werden.'));
+        img.src = src;
+    });
+}
+
+function loadFileAsImage(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            loadImageFromSource(reader.result)
+                .then(resolve)
+                .catch(reject);
+        };
+        reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+        reader.readAsDataURL(file);
+    });
+}
+
+async function scaleImageForEditor(image, mimeType = 'image/jpeg') {
+    const largestSide = Math.max(image?.width || 0, image?.height || 0);
+    if (!largestSide) {
+        throw new Error('Bild ist leer.');
+    }
+    if (largestSide <= MAX_IMPORT_DIMENSION) return image;
+
+    const scale = MAX_IMPORT_DIMENSION / largestSide;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round((image.width || 0) * scale);
+    canvas.height = Math.round((image.height || 0) * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const mime = mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+    const dataUrl = canvas.toDataURL(mime, mime === 'image/png' ? 0.92 : 0.9);
+    return loadImageFromSource(dataUrl);
 }
 
 function toggleCodeModal(show) {
@@ -247,6 +304,12 @@ async function toggleTorch() {
 }
 
 async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+        showToast('Keine Kamera-Unterstützung. Bitte Foto hochladen.');
+        cameraUnavailable = true;
+        updateTakeButtonAvailability();
+        return;
+    }
     await loadVideoDevices();
     await startCameraWithConstraints();
 }
@@ -271,11 +334,16 @@ async function startCameraWithConstraints(deviceId = null) {
         updateSwitchAvailability();
         torchEnabled = false;
         await updateTorchSupport();
+        cameraUnavailable = false;
+        updateTakeButtonAvailability();
     } catch (e) {
         showToast('Kamera konnte nicht gestartet werden.');
         torchSupported = false;
         torchEnabled = false;
         updateTorchButton();
+        stream = null;
+        cameraUnavailable = true;
+        updateTakeButtonAvailability();
     }
 }
 
@@ -287,6 +355,7 @@ async function stopCurrentStream() {
     torchSupported = false;
     torchEnabled = false;
     updateTorchButton();
+    updateTakeButtonAvailability();
 }
 
 async function loadVideoDevices() {
@@ -841,6 +910,32 @@ async function uploadBlob(blob, dataUrl) {
     }
 }
 
+async function handleFileSelection(file) {
+    if (!file) return;
+    if (remaining <= 0) {
+        showToast('Limit erreicht.');
+        return;
+    }
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const mimeType = allowedTypes.includes(file.type)
+        ? file.type === 'image/jpg'
+            ? 'image/jpeg'
+            : file.type
+        : '';
+    if (!mimeType) {
+        showToast('Bitte nur JPEG oder PNG auswählen.');
+        return;
+    }
+    try {
+        const loaded = await loadFileAsImage(file);
+        const scaled = await scaleImageForEditor(loaded, mimeType);
+        enterEditMode(scaled);
+    } catch (err) {
+        console.warn('Bild konnte nicht geladen werden:', err);
+        showToast('Bild konnte nicht geladen werden.');
+    }
+}
+
 async function takePhoto() {
     if (!stream || !captureCanvas) {
         showToast('Bitte Kamera zuerst starten.');
@@ -898,6 +993,18 @@ startBtn?.addEventListener('click', startCamera);
 switchBtn?.addEventListener('click', switchCamera);
 takeBtn?.addEventListener('click', takePhoto);
 torchBtn?.addEventListener('click', toggleTorch);
+uploadBtn?.addEventListener('click', () => {
+    if (remaining <= 0) {
+        showToast('Limit erreicht.');
+        return;
+    }
+    uploadInput?.click();
+});
+uploadInput?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (uploadInput) uploadInput.value = '';
+    handleFileSelection(file);
+});
 addTextBtn?.addEventListener('click', addTextOverlay);
 editTextBtn?.addEventListener('click', editSelectedText);
 stickerPalette?.addEventListener('click', (e) => {
@@ -1127,8 +1234,11 @@ if (overlayOpacityValue && overlayOpacityInput?.value) {
 if (colorFilterSelect?.value) {
     selectedColorFilterId = colorFilterSelect.value;
 }
- setActiveTab('image');
+setActiveTab('image');
 setOverlayFilter(selectedOverlayFilterId);
+if (!navigator.mediaDevices?.getUserMedia) {
+    cameraUnavailable = true;
+}
 updateRemaining(remaining);
 processQueue();
 loadCustomFonts();
