@@ -5,6 +5,7 @@ $eventRepo = new EventRepository();
 $sessionRepo = new SessionRepository();
 $photoRepo = new PhotoRepository();
 $deleteLogRepo = new DeleteLogRepository();
+$bonusCodeRepo = new BonusCodeRepository();
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $base = rtrim(env('BASE_URL', ''), '/');
@@ -45,7 +46,7 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)$#', $uri, $matches) && $_SERVER['REQUEST_ME
         $token = random_token(24);
         $sessionId = $sessionRepo->create((int)$event['id'], $token);
         setcookie($cookieName, $token, time() + 60 * 60 * 24 * 30, '/');
-        $session = ['id' => $sessionId, 'session_token' => $token, 'photo_count' => 0];
+        $session = ['id' => $sessionId, 'session_token' => $token, 'photo_count' => 0, 'extra_photos' => 0];
     } else {
         $session = $sessionRepo->findByToken($token);
     }
@@ -117,6 +118,83 @@ if ($uri === '/api/delete-requests' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 }
 
+if ($uri === '/redeem-code' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $codeInput = strtoupper(trim($_POST['code'] ?? ''));
+    $eventSlug = preg_replace('/[^a-z0-9-]/', '', strtolower($_POST['event_slug'] ?? ''));
+    $sessionToken = preg_replace('/[^a-zA-Z0-9]/', '', $_POST['session_token'] ?? '');
+
+    if ($codeInput === '' || $eventSlug === '' || $sessionToken === '') {
+        respond_json(['success' => false, 'error' => 'invalid_request']);
+    }
+
+    $event = $eventRepo->findBySlug($eventSlug);
+    if (!$event) {
+        respond_json(['success' => false, 'error' => 'event_not_found']);
+    }
+
+    $session = $sessionRepo->findByToken($sessionToken);
+    if (!$session || (int)$session['event_id'] !== (int)$event['id']) {
+        respond_json(['success' => false, 'error' => 'invalid_session']);
+    }
+
+    $bonusCode = $bonusCodeRepo->findByCode($codeInput);
+    if (!$bonusCode) {
+        respond_json(['success' => false, 'error' => 'code_not_found']);
+    }
+
+    if ((int)$bonusCode['event_id'] !== (int)$event['id']) {
+        respond_json(['success' => false, 'error' => 'code_wrong_event']);
+    }
+
+    if ($bonusCode['expires_at'] && strtotime($bonusCode['expires_at']) < time()) {
+        respond_json(['success' => false, 'error' => 'code_expired']);
+    }
+
+    $maxUses = $bonusCode['max_uses'] !== null ? (int)$bonusCode['max_uses'] : null;
+    $usedCount = (int)$bonusCode['used_count'];
+    $type = $bonusCode['type'];
+
+    if ($type === 'single_use' && $usedCount >= ($maxUses ?? 1)) {
+        respond_json(['success' => false, 'error' => 'code_used']);
+    }
+
+    if ($type === 'per_session') {
+        if ($bonusCodeRepo->hasSessionRedemption((int)$bonusCode['id'], (int)$session['id'])) {
+            respond_json(['success' => false, 'error' => 'code_used_session']);
+        }
+        if ($maxUses !== null && $usedCount >= $maxUses) {
+            respond_json(['success' => false, 'error' => 'code_used']);
+        }
+    }
+
+    if ($type === 'unlimited' && $maxUses !== null && $usedCount >= $maxUses) {
+        respond_json(['success' => false, 'error' => 'code_used']);
+    }
+
+    $db = Database::connection();
+    $db->beginTransaction();
+    try {
+        $bonusCodeRepo->incrementUsedCount((int)$bonusCode['id']);
+        $bonusCodeRepo->logSessionRedemption((int)$bonusCode['id'], (int)$session['id']);
+        $sessionRepo->addExtraPhotos((int)$session['id'], (int)$bonusCode['extra_photos']);
+        $db->commit();
+    } catch (Exception $e) {
+        $db->rollBack();
+        respond_json(['success' => false, 'error' => 'server_error']);
+    }
+
+    $newExtra = (int)($session['extra_photos'] ?? 0) + (int)$bonusCode['extra_photos'];
+    $remaining = ((int)$event['max_photos_per_session'] + $newExtra) - (int)$session['photo_count'];
+
+    respond_json([
+        'success' => true,
+        'extra_photos' => (int)$bonusCode['extra_photos'],
+        'description' => $bonusCode['description'] ?? null,
+        'remaining' => max($remaining, 0),
+        'type' => $type,
+    ]);
+}
+
 if (preg_match('#^/e/([a-zA-Z0-9-]+)/gallery$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
     $slug = $matches[1];
     $event = $eventRepo->findBySlug($slug);
@@ -164,7 +242,8 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)/upload$#', $uri, $matches) && $_SERVER['REQ
         echo json_encode(['error' => 'Invalid session']);
         exit;
     }
-    if ($session['photo_count'] >= $event['max_photos_per_session']) {
+    $sessionLimit = (int)$event['max_photos_per_session'] + (int)($session['extra_photos'] ?? 0);
+    if ((int)$session['photo_count'] >= $sessionLimit) {
         http_response_code(400);
         echo json_encode(['error' => 'Limit reached']);
         exit;
@@ -329,6 +408,62 @@ if ($uri === '/admin/events') {
     }
     $events = $eventRepo->findAll();
     render('admin_events', ['events' => $events]);
+    exit;
+}
+
+if (preg_match('#^/admin/events/(\d+)/bonus-codes$#', $uri, $matches)) {
+    require_auth();
+    $eventId = (int) $matches[1];
+    $event = $eventRepo->find($eventId);
+    if (!$event) {
+        respond_not_found();
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $action = $_POST['action'] ?? 'save';
+        if ($action === 'delete') {
+            $codeId = (int)($_POST['id'] ?? 0);
+            if ($codeId > 0) {
+                $bonusCodeRepo->delete($codeId);
+            }
+            header('Location: ' . base_url('admin/events/' . $eventId . '/bonus-codes'));
+            exit;
+        }
+
+        $codeValue = strtoupper(trim($_POST['code'] ?? ''));
+        $description = trim($_POST['description'] ?? '');
+        $extraPhotos = max(0, (int)($_POST['extra_photos'] ?? 0));
+        $type = $_POST['type'] ?? 'single_use';
+        $maxUsesInput = trim($_POST['max_uses'] ?? '');
+        $maxUses = $maxUsesInput === '' ? null : max(1, (int)$maxUsesInput);
+        $expiresAtRaw = trim($_POST['expires_at'] ?? '');
+        $expiresAt = $expiresAtRaw !== '' ? $expiresAtRaw : null;
+
+        if ($codeValue !== '' && $extraPhotos > 0) {
+            $data = [
+                'code' => $codeValue,
+                'description' => $description !== '' ? $description : null,
+                'extra_photos' => $extraPhotos,
+                'type' => in_array($type, ['single_use', 'per_session', 'unlimited'], true) ? $type : 'single_use',
+                'max_uses' => $maxUses,
+                'event_id' => $eventId,
+                'expires_at' => $expiresAt,
+            ];
+
+            if (!empty($_POST['id'])) {
+                $bonusCodeRepo->update((int)$_POST['id'], $data);
+            } else {
+                $bonusCodeRepo->create($data);
+            }
+        }
+
+        header('Location: ' . base_url('admin/events/' . $eventId . '/bonus-codes'));
+        exit;
+    }
+
+    $codes = $bonusCodeRepo->findByEvent($eventId);
+    $redemptions = $bonusCodeRepo->findRedemptionsForEvent($eventId);
+    render('admin_bonus_codes', ['event' => $event, 'codes' => $codes, 'redemptions' => $redemptions]);
     exit;
 }
 

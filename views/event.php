@@ -1,6 +1,8 @@
 <?php
 ob_start();
-$remaining = (int)$event['max_photos_per_session'] - (int)$session['photo_count'];
+$sessionExtra = (int)($session['extra_photos'] ?? 0);
+$totalLimit = (int)$event['max_photos_per_session'] + $sessionExtra;
+$remaining = max(0, $totalLimit - (int)$session['photo_count']);
 $stickerDir = __DIR__ . '/../public/stickers';
 $frameDir = __DIR__ . '/../public/frames';
 $overlayDir = __DIR__ . '/../public/overlays';
@@ -93,8 +95,11 @@ $themeStyles = theme_style_block($theme);
     <div>
         <p class="eyebrow">NRW Noir Disposable Cam</p>
         <h1><?= sanitize_text($event['name']) ?></h1>
-        <p class="muted">Du kannst noch <strong id="remaining-count"><?= $remaining ?></strong> von <?= (int)$event['max_photos_per_session'] ?> Fotos aufnehmen.</p>
+        <p class="muted">Du kannst noch <strong id="remaining-count"><?= $remaining ?></strong> von <strong id="total-limit"><?= $totalLimit ?></strong> Fotos aufnehmen<span id="bonus-info"><?= $sessionExtra > 0 ? ' (inkl. ' . $sessionExtra . ' Bonus)' : '' ?></span>.</p>
         <p class="muted small">Event-Galerie ansehen: <a href="<?= base_url('e/' . sanitize_text($event['slug']) . '/gallery') ?>">Zur Übersicht</a></p>
+    </div>
+    <div class="actions">
+        <button id="open-code-modal" class="secondary" type="button">Code eingeben</button>
     </div>
     <?php if (!empty($event['banner_url'])): ?>
         <img src="<?= sanitize_text($event['banner_url']) ?>" alt="Event Banner" class="event-banner">
@@ -316,6 +321,21 @@ $themeStyles = theme_style_block($theme);
     </div>
 </section>
 
+<div id="code-modal" class="photo-modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content form-modal">
+        <button type="button" id="close-code-modal" aria-label="Schließen">✕</button>
+        <h3>Bonus-Code einlösen</h3>
+        <p class="muted small">Codes schenken dir zusätzliche Fotoslots für dieses Event.</p>
+        <form id="bonus-code-form" class="grid" style="grid-template-columns: 1fr; gap: 12px;">
+            <label class="field">Code
+                <input type="text" id="bonus-code-input" name="code" required placeholder="FILMROLL-2024">
+            </label>
+            <button type="submit" class="primary">Einlösen</button>
+        </form>
+        <div id="code-feedback" class="alert hidden"></div>
+    </div>
+</div>
+
 <div id="toast" class="toast hidden"></div>
 
 <script>
@@ -323,6 +343,10 @@ $themeStyles = theme_style_block($theme);
         uploadUrl: "<?= base_url('e/' . sanitize_text($event['slug']) . '/upload') ?>",
         sessionToken: "<?= sanitize_text($session['session_token']) ?>",
         remaining: <?= $remaining ?>,
+        eventSlug: "<?= sanitize_text($event['slug']) ?>",
+        baseLimit: <?= (int)$event['max_photos_per_session'] ?>,
+        extraPhotos: <?= $sessionExtra ?>,
+        redeemUrl: "<?= base_url('redeem-code') ?>",
         fonts: <?= json_encode($fonts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
         colorFilters: <?= json_encode($colorFilters, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
         overlayCategories: <?= json_encode($overlayCategories, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
