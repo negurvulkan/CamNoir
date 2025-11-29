@@ -60,10 +60,6 @@ $themeStyles = theme_style_block($theme);
 </div>
 
 <section class="card">
-    <label class="checkbox">
-        <input type="checkbox" id="consent" />
-        <span>Ich stimme der Verarbeitung meiner Fotos im Rahmen dieses Events zu.</span>
-    </label>
     <div id="camera-view">
         <div class="camera">
             <video id="camera-preview" playsinline autoplay muted class="preview"></video>
@@ -77,16 +73,7 @@ $themeStyles = theme_style_block($theme);
     </div>
 
     <div id="editor-view" class="hidden">
-        <div class="editor-header">
-            <div>
-                <p class="eyebrow">Bildeditor</p>
-                <p class="muted small">Zuerst Filter wählen, dann Rahmen, Sticker oder Text platzieren.</p>
-            </div>
-            <div class="editor-badge">
-                <span class="dot"></span>
-                <span>Live-Editing aktiv</span>
-            </div>
-        </div>
+        <p class="muted small">Zuerst Filter wählen, dann Rahmen, Sticker oder Text platzieren.</p>
         <div class="editor-layout tabbed-editor">
             <div class="editor-canvas-shell">
                 <div class="tab-list tab-list-floating" role="tablist">

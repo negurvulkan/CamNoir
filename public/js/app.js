@@ -1,4 +1,3 @@
-const consent = document.getElementById('consent');
 const startBtn = document.getElementById('start-camera');
 const switchBtn = document.getElementById('switch-camera');
 const takeBtn = document.getElementById('take-photo');
@@ -78,6 +77,11 @@ let overlayFilterImage = null;
 let overlayFilterBlendMode = overlayBlendSelect?.value || 'screen';
 let overlayFilterOpacity = overlayOpacityInput ? Number(overlayOpacityInput.value) / 100 : 0.8;
 
+function updateTakeButtonAvailability() {
+    if (!takeBtn) return;
+    takeBtn.disabled = remaining <= 0;
+}
+
 function showToast(message) {
     toast.textContent = message;
     toast.classList.remove('hidden');
@@ -88,10 +92,8 @@ function updateRemaining(count) {
     remaining = count;
     const el = document.getElementById('remaining-count');
     if (el) el.textContent = remaining;
-    if (remaining <= 0) {
-        if (takeBtn) takeBtn.disabled = true;
-        showToast('Limit erreicht.');
-    }
+    updateTakeButtonAvailability();
+    if (remaining <= 0) showToast('Limit erreicht.');
 }
 
 function saveQueue() {
@@ -631,7 +633,7 @@ async function uploadBlob(blob, dataUrl) {
         }
         toggleViews(false);
         resetEditorState();
-        if (remaining > 0 && takeBtn) takeBtn.disabled = !consent?.checked;
+        updateTakeButtonAvailability();
         processQueue();
     }
 }
@@ -661,7 +663,7 @@ async function takePhoto() {
 function cancelEditing() {
     toggleViews(false);
     resetEditorState();
-    if (remaining > 0 && takeBtn) takeBtn.disabled = !consent?.checked;
+    updateTakeButtonAvailability();
 }
 
 function finalizeEdit() {
@@ -674,10 +676,6 @@ function finalizeEdit() {
     const blob = dataURLToBlob(dataUrl);
     uploadBlob(blob, dataUrl);
 }
-
-consent?.addEventListener('change', () => {
-    if (takeBtn) takeBtn.disabled = !consent.checked || remaining <= 0;
-});
 
 tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
