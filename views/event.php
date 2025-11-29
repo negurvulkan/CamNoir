@@ -39,9 +39,7 @@ $themeStyles = theme_style_block($theme);
         <p class="eyebrow">NRW Noir Disposable Cam</p>
         <h1><?= sanitize_text($event['name']) ?></h1>
         <p class="muted">Du kannst noch <strong id="remaining-count"><?= $remaining ?></strong> von <?= (int)$event['max_photos_per_session'] ?> Fotos aufnehmen.</p>
-        <p class="muted small">Jedes Foto erhält einen Löschcode im Bild. Du kannst später mit deiner Session-ID oder einem Löschcode löschen lassen.</p>
         <p class="muted small">Event-Galerie ansehen: <a href="<?= base_url('e/' . sanitize_text($event['slug']) . '/gallery') ?>">Zur Übersicht</a></p>
-        <p class="muted small">Live-Diashow: <a href="<?= base_url('e/' . sanitize_text($event['slug']) . '/slideshow') ?>">Beamer-Ansicht öffnen</a></p>
     </div>
     <?php if (!empty($event['banner_url'])): ?>
         <img src="<?= sanitize_text($event['banner_url']) ?>" alt="Event Banner" class="event-banner">
