@@ -2,6 +2,19 @@
 
 Minimalistische Web-App, mit der Besucher:innen per QR-Code eine digitale Einwegkamera verwenden können. Implementiert mit PHP/MySQL, Vanilla JS und einem kleinen Admin-Bereich.
 
+## Features
+1. Eventbasierte Einwegkamera mit QR-Code-Zugriff für Gäste.
+2. Session-Verwaltung pro Endgerät inklusive optionaler Session-Löschung.
+3. Foto-Upload mit Löschcode, der ins Bild gerendert wird.
+4. Readonly-Galerie pro Event (optional öffentlich erreichbar).
+5. Einzel- und Mehrfachlöschung über Löschcode oder Session-Reset.
+6. Admin-Login mit Passwort aus `.env` für geschützten Zugriff.
+7. Admin-Oberfläche zum Anlegen, Bearbeiten und Deaktivieren von Events.
+8. Admin-Ansicht zum Durchstöbern und Löschen von Event-Fotos.
+9. Konfigurierbare Auto-Löschung alter Fotos per Cron-Job.
+10. Platzhalterseite für Datenschutzerklärung.
+11. Keine Speicherung personenbezogener Daten; reine Gastnutzung ohne Konten.
+
 ## Setup
 1. Kopiere `.env.example` zu `.env` und passe Datenbank & Admin-Passwort an.
 2. Importiere `sql_schema.sql` in eine MySQL/MariaDB-Datenbank.
