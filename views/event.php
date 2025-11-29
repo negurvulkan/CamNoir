@@ -89,6 +89,12 @@ $themeStyles = theme_style_block($theme);
         </div>
         <div class="editor-layout tabbed-editor">
             <div class="editor-canvas-shell">
+                <div class="tab-list tab-list-floating" role="tablist">
+                    <button class="tab-btn active" role="tab" aria-selected="true" data-tab-target="filter">Filter</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="frames">Rahmen</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="stickers">Sticker</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="text">Text</button>
+                </div>
                 <div class="canvas-top">
                     <p class="muted small">Overlay-Filter</p>
                     <div class="pill-group">
@@ -105,12 +111,6 @@ $themeStyles = theme_style_block($theme);
                 <canvas id="editor-canvas"></canvas>
             </div>
             <div class="tab-shell">
-                <div class="tab-list" role="tablist">
-                    <button class="tab-btn active" role="tab" aria-selected="true" data-tab-target="filter">Filter</button>
-                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="frames">Rahmen</button>
-                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="stickers">Sticker</button>
-                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="text">Text</button>
-                </div>
                 <div class="tab-panels">
                     <div class="tab-panel" data-tab-panel="filter">
                         <div class="panel-grid">
