@@ -6,6 +6,7 @@ CREATE TABLE events (
     max_photos_per_session INT DEFAULT 10,
     auto_delete_days INT DEFAULT 30,
     frame_branding_text VARCHAR(255) NULL,
+    auto_approve_photos TINYINT(1) DEFAULT 0,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

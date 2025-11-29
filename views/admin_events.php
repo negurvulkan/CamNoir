@@ -25,6 +25,10 @@
         <label class="field">Frame Branding Text
             <input type="text" name="frame_branding_text" placeholder="Night Zero 2026">
         </label>
+        <label class="checkbox">
+            <input type="checkbox" name="auto_approve_photos" value="1">
+            <span>Neue Fotos automatisch freigeben</span>
+        </label>
         <button class="primary" type="submit">Speichern</button>
     </form>
 </section>
@@ -33,7 +37,7 @@
     <h2>Aktive Events</h2>
     <table>
         <thead>
-            <tr><th>Name</th><th>Slug</th><th>Max Fotos</th><th>Auto-Delete</th><th>Aktionen</th></tr>
+            <tr><th>Name</th><th>Slug</th><th>Max Fotos</th><th>Auto-Delete</th><th>Auto-Freigabe</th><th>Aktionen</th></tr>
         </thead>
         <tbody>
         <?php foreach ($events as $event): ?>
@@ -42,6 +46,7 @@
                 <td><code><?= sanitize_text($event['slug']) ?></code></td>
                 <td><?= (int)$event['max_photos_per_session'] ?></td>
                 <td><?= (int)$event['auto_delete_days'] ?> Tage</td>
+                <td><?= (int)$event['auto_approve_photos'] ? 'Ja' : 'Nein' ?></td>
                 <td>
                     <a class="secondary" href="<?= base_url('admin/events/' . (int)$event['id']) ?>">Details</a>
                     <a class="secondary" href="<?= base_url('admin/events/' . (int)$event['id'] . '/photos') ?>">Fotos</a>
@@ -63,6 +68,7 @@ function fillEvent(event) {
     document.querySelector('input[name="max_photos_per_session"]').value = event.max_photos_per_session;
     document.querySelector('input[name="auto_delete_days"]').value = event.auto_delete_days;
     document.querySelector('input[name="frame_branding_text"]').value = event.frame_branding_text || '';
+    document.querySelector('input[name="auto_approve_photos"]').checked = !!parseInt(event.auto_approve_photos);
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 </script>
