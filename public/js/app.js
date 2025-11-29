@@ -10,7 +10,11 @@ const uploadStatusText = document.getElementById('upload-status-text');
 const cameraView = document.getElementById('camera-view');
 const editorView = document.getElementById('editor-view');
 const editorCanvas = document.getElementById('editor-canvas');
+const tabButtons = document.querySelectorAll('[data-tab-target]');
+const tabPanels = document.querySelectorAll('[data-tab-panel]');
+const transformPanel = document.getElementById('transform-panel');
 const addTextBtn = document.getElementById('add-text-btn');
+const editTextBtn = document.getElementById('edit-text-btn');
 const stickerPalette = document.getElementById('sticker-palette');
 const framePalette = document.getElementById('frame-palette');
 const colorFilterSelect = document.getElementById('color-filter-select');
@@ -19,6 +23,10 @@ const overlayScopeInputs = document.querySelectorAll('input[name="overlay-scope"
 const overlayBlendSelect = document.getElementById('overlay-blend-select');
 const overlayOpacityInput = document.getElementById('overlay-opacity');
 const overlayOpacityValue = document.getElementById('overlay-opacity-value');
+const overlayScaleRange = document.getElementById('overlay-scale-range');
+const overlayRotationRange = document.getElementById('overlay-rotation-range');
+const overlayScaleValue = document.getElementById('overlay-scale-value');
+const overlayRotationValue = document.getElementById('overlay-rotation-value');
 const fontSelect = document.getElementById('font-select');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
 const editConfirmBtn = document.getElementById('edit-confirm-btn');
@@ -157,6 +165,23 @@ function updateSwitchAvailability() {
     switchBtn.disabled = !stream && videoDevices.length <= 1;
 }
 
+function setActiveTab(target) {
+    if (!target) return;
+    tabButtons.forEach((btn) => {
+        const isActive = btn.getAttribute('data-tab-target') === target;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive);
+    });
+    tabPanels.forEach((panel) => {
+        const isActive = panel.getAttribute('data-tab-panel') === target;
+        panel.classList.toggle('hidden', !isActive);
+    });
+    if (transformPanel) {
+        const showTransform = target === 'stickers' || target === 'text';
+        transformPanel.classList.toggle('hidden', !showTransform);
+    }
+}
+
 async function switchCamera() {
     if (!videoDevices.length) {
         await loadVideoDevices();
@@ -192,6 +217,7 @@ function resetEditorState() {
     if (editorCtx && editorCanvas) {
         editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
     }
+    updateTransformControls();
 }
 
 function getOverlayBounds(overlay) {
@@ -264,7 +290,28 @@ function setSelected(overlay) {
     if (selectedOverlay?.type === 'text' && fontSelect) {
         fontSelect.value = selectedOverlay.fontFamily || getSelectedFont();
     }
+    updateTransformControls();
     renderEditor();
+}
+
+function updateTransformControls() {
+    if (!overlayScaleRange || !overlayRotationRange || !overlayScaleValue || !overlayRotationValue) return;
+    const hasSelection = Boolean(selectedOverlay);
+    overlayScaleRange.disabled = !hasSelection;
+    overlayRotationRange.disabled = !hasSelection;
+    if (!hasSelection) {
+        overlayScaleRange.value = 100;
+        overlayRotationRange.value = 0;
+        overlayScaleValue.textContent = '100';
+        overlayRotationValue.textContent = '0';
+        return;
+    }
+    const scalePercent = Math.round((selectedOverlay.scale || 1) * 100);
+    const rotationDeg = Math.round((selectedOverlay.rotation || 0) * (180 / Math.PI));
+    overlayScaleRange.value = scalePercent;
+    overlayRotationRange.value = rotationDeg;
+    overlayScaleValue.textContent = scalePercent.toString();
+    overlayRotationValue.textContent = rotationDeg.toString();
 }
 
 function drawOverlay(overlay) {
@@ -338,6 +385,8 @@ function enterEditMode(image) {
     const scale = image.width > maxWidth ? maxWidth / image.width : 1;
     editorCanvas.width = Math.round(image.width * scale);
     editorCanvas.height = Math.round(image.height * scale);
+    setActiveTab('filter');
+    updateTransformControls();
     toggleViews(true);
     renderEditor();
 }
@@ -431,6 +480,18 @@ function addTextOverlay() {
     setSelected(overlay);
 }
 
+function editSelectedText() {
+    if (!selectedOverlay || selectedOverlay.type !== 'text') {
+        showToast('Bitte zuerst einen Text auswählen.');
+        return;
+    }
+    const newText = prompt('Text bearbeiten', selectedOverlay.text || '');
+    if (!newText || !newText.trim()) return;
+    selectedOverlay.text = newText.trim();
+    selectedOverlay.width = measureTextWidth(selectedOverlay.text, selectedOverlay.fontSize, selectedOverlay.fontFamily);
+    renderEditor();
+}
+
 function onPointerDown(e) {
     if (!editorCanvas) return;
     const rect = editorCanvas.getBoundingClientRect();
@@ -471,12 +532,14 @@ function onPointerUp() {
 function modifyScale(factor) {
     if (!selectedOverlay) return;
     selectedOverlay.scale = Math.min(4, Math.max(0.2, selectedOverlay.scale * factor));
+    updateTransformControls();
     renderEditor();
 }
 
 function modifyRotation(delta) {
     if (!selectedOverlay) return;
     selectedOverlay.rotation = (selectedOverlay.rotation || 0) + delta;
+    updateTransformControls();
     renderEditor();
 }
 
@@ -613,10 +676,18 @@ consent?.addEventListener('change', () => {
     if (takeBtn) takeBtn.disabled = !consent.checked || remaining <= 0;
 });
 
+tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-tab-target');
+        setActiveTab(target);
+    });
+});
+
 startBtn?.addEventListener('click', startCamera);
 switchBtn?.addEventListener('click', switchCamera);
 takeBtn?.addEventListener('click', takePhoto);
 addTextBtn?.addEventListener('click', addTextOverlay);
+editTextBtn?.addEventListener('click', editSelectedText);
 stickerPalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-src]');
     if (!btn) return;
@@ -656,6 +727,22 @@ overlayOpacityInput?.addEventListener('input', () => {
         renderEditor();
     }
 });
+overlayScaleRange?.addEventListener('input', () => {
+    if (!selectedOverlay) return;
+    const value = Number(overlayScaleRange.value);
+    if (Number.isNaN(value)) return;
+    selectedOverlay.scale = Math.min(4, Math.max(0.2, value / 100));
+    updateTransformControls();
+    renderEditor();
+});
+overlayRotationRange?.addEventListener('input', () => {
+    if (!selectedOverlay) return;
+    const value = Number(overlayRotationRange.value);
+    if (Number.isNaN(value)) return;
+    selectedOverlay.rotation = (value * Math.PI) / 180;
+    updateTransformControls();
+    renderEditor();
+});
 framePalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-src], [data-clear-frame]');
     if (!btn) return;
@@ -692,7 +779,9 @@ if (overlayOpacityValue && overlayOpacityInput?.value) {
 if (colorFilterSelect?.value) {
     selectedColorFilterId = colorFilterSelect.value;
 }
+setActiveTab('filter');
 setOverlayFilter(selectedOverlayFilterId);
 updateRemaining(remaining);
 processQueue();
 loadCustomFonts();
+updateTransformControls();
