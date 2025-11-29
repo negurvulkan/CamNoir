@@ -123,7 +123,7 @@ async function loadVideoDevices() {
 
 function updateSwitchAvailability() {
     if (!switchBtn) return;
-    switchBtn.disabled = videoDevices.length <= 1;
+    switchBtn.disabled = !stream && videoDevices.length <= 1;
 }
 
 async function switchCamera() {
