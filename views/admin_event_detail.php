@@ -9,6 +9,7 @@
         <h3><?= sanitize_text($event['name']) ?></h3>
         <p class="muted">Slug: <code><?= sanitize_text($event['slug']) ?></code></p>
         <p class="muted">Frame-Branding: <?= $event['frame_branding_text'] ? sanitize_text($event['frame_branding_text']) : '–' ?></p>
+        <p class="muted">Auto-Freigabe: <?= (int)$event['auto_approve_photos'] ? 'Aktiv' : 'Deaktiviert' ?></p>
     </div>
     <div>
         <p class="muted small">Aktive Sessions</p>

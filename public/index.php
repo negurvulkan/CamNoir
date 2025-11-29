@@ -206,7 +206,7 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)/upload$#', $uri, $matches) && $_SERVER['REQ
         'picture_uuid' => $pictureUuid,
         'delete_code' => $deleteCode,
         'file_path' => $filePath,
-        'is_approved' => 0,
+        'is_approved' => (int) ($event['auto_approve_photos'] ?? 0),
     ]);
     $sessionRepo->incrementPhotoCount((int)$session['id']);
 
@@ -285,6 +285,7 @@ if ($uri === '/admin/events') {
             'max_photos_per_session' => (int)($_POST['max_photos_per_session'] ?? 10),
             'auto_delete_days' => (int)($_POST['auto_delete_days'] ?? 30),
             'frame_branding_text' => trim($_POST['frame_branding_text'] ?? ''),
+            'auto_approve_photos' => isset($_POST['auto_approve_photos']) ? 1 : 0,
         ];
         if (!empty($_POST['id'])) {
             $eventRepo->update((int)$_POST['id'], $data);
