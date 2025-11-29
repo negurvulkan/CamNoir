@@ -36,6 +36,14 @@ const scaleUpBtn = document.getElementById('overlay-scale-up');
 const scaleDownBtn = document.getElementById('overlay-scale-down');
 const rotateLeftBtn = document.getElementById('overlay-rotate-left');
 const rotateRightBtn = document.getElementById('overlay-rotate-right');
+const openCodeModalBtn = document.getElementById('open-code-modal');
+const closeCodeModalBtn = document.getElementById('close-code-modal');
+const codeModal = document.getElementById('code-modal');
+const bonusCodeForm = document.getElementById('bonus-code-form');
+const bonusCodeInput = document.getElementById('bonus-code-input');
+const codeFeedback = document.getElementById('code-feedback');
+const bonusInfo = document.getElementById('bonus-info');
+const totalLimitEl = document.getElementById('total-limit');
 const availableFonts = window.CAM_CONFIG?.fonts || [{ name: 'Arial', url: null }];
 const defaultColorFilters = [
     { id: 'none', name: 'Kein Filter', css: 'none' },
@@ -70,6 +78,8 @@ let videoDevices = [];
 let currentDeviceIndex = 0;
 let preferredFacingMode = 'environment';
 let remaining = window.CAM_CONFIG?.remaining ?? 0;
+let baseLimit = window.CAM_CONFIG?.baseLimit ?? 0;
+let extraPhotos = window.CAM_CONFIG?.extraPhotos ?? 0;
 let uploadQueue = JSON.parse(localStorage.getItem('noir_upload_queue') || '[]');
 let overlays = [];
 let selectedOverlay = null;
@@ -93,6 +103,15 @@ function updateTakeButtonAvailability() {
     takeBtn.disabled = remaining <= 0;
 }
 
+function updateLimitsDisplay() {
+    if (totalLimitEl) {
+        totalLimitEl.textContent = baseLimit + extraPhotos;
+    }
+    if (bonusInfo) {
+        bonusInfo.textContent = extraPhotos > 0 ? ` (inkl. ${extraPhotos} Bonus)` : '';
+    }
+}
+
 function showToast(message) {
     toast.textContent = message;
     toast.classList.remove('hidden');
@@ -100,11 +119,30 @@ function showToast(message) {
 }
 
 function updateRemaining(count) {
-    remaining = count;
+    remaining = Math.max(0, count);
     const el = document.getElementById('remaining-count');
     if (el) el.textContent = remaining;
+    updateLimitsDisplay();
     updateTakeButtonAvailability();
     if (remaining <= 0) showToast('Limit erreicht.');
+}
+
+function toggleCodeModal(show) {
+    if (!codeModal) return;
+    codeModal.classList.toggle('hidden', !show);
+    if (show && bonusCodeInput) {
+        bonusCodeInput.focus();
+    }
+    if (!show && codeFeedback) {
+        codeFeedback.classList.add('hidden');
+    }
+}
+
+function setCodeFeedback(message, success = false) {
+    if (!codeFeedback) return;
+    codeFeedback.textContent = message;
+    codeFeedback.classList.remove('hidden', 'success', 'warning');
+    codeFeedback.classList.add('alert', success ? 'success' : 'warning');
 }
 
 function saveQueue() {
@@ -820,6 +858,59 @@ rotateLeftBtn?.addEventListener('click', () => modifyRotation(-0.1));
 rotateRightBtn?.addEventListener('click', () => modifyRotation(0.1));
 editCancelBtn?.addEventListener('click', cancelEditing);
 editConfirmBtn?.addEventListener('click', finalizeEdit);
+openCodeModalBtn?.addEventListener('click', () => toggleCodeModal(true));
+closeCodeModalBtn?.addEventListener('click', () => toggleCodeModal(false));
+codeModal?.addEventListener('click', (e) => {
+    if (e.target === codeModal) toggleCodeModal(false);
+});
+
+const redeemErrorMessages = {
+    invalid_request: 'Bitte gib einen Code ein.',
+    code_not_found: 'Code nicht gefunden.',
+    code_wrong_event: 'Dieser Code gehört zu einem anderen Event.',
+    code_expired: 'Code ist abgelaufen.',
+    code_used: 'Code wurde bereits vollständig genutzt.',
+    code_used_session: 'Du hast diesen Code in dieser Session schon genutzt.',
+    invalid_session: 'Session ungültig. Bitte Seite neu laden.',
+    server_error: 'Serverfehler. Bitte später erneut versuchen.',
+    event_not_found: 'Event nicht gefunden.',
+};
+
+bonusCodeForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!bonusCodeInput) return;
+    const code = bonusCodeInput.value.trim();
+    if (!code) {
+        setCodeFeedback('Bitte gib einen Code ein.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('code', code);
+    formData.append('session_token', window.CAM_CONFIG?.sessionToken || '');
+    formData.append('event_slug', window.CAM_CONFIG?.eventSlug || '');
+
+    try {
+        const res = await fetch(window.CAM_CONFIG?.redeemUrl || '/redeem-code', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            const granted = Number(json.extra_photos || 0);
+            extraPhotos += granted;
+            updateRemaining(Number(json.remaining ?? remaining));
+            updateLimitsDisplay();
+            setCodeFeedback(`+${granted} Fotos freigeschaltet.`, true);
+            showToast('Bonus aktiviert!');
+            bonusCodeInput.value = '';
+        } else {
+            const msg = redeemErrorMessages[json.error] || 'Code konnte nicht eingelöst werden.';
+            setCodeFeedback(msg);
+        }
+    } catch (err) {
+        setCodeFeedback('Es gab ein Problem beim Einlösen. Bitte später erneut versuchen.');
+    }
+});
+
+updateLimitsDisplay();
 
 if (overlaySliders && overlaySliders.length) {
     setActiveOverlayCategory(getActiveOverlayCategoryId());

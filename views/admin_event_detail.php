@@ -6,6 +6,10 @@ $colorFilters = merge_color_filters($event['color_filters'] ?? null);
     <h1>Event-Details</h1>
     <a class="secondary" href="<?= base_url('admin/events') ?>">Zurück</a>
 </div>
+<div class="actions" style="margin-top: -8px;">
+    <a class="secondary" href="<?= base_url('admin/events/' . (int)$event['id'] . '/bonus-codes') ?>">Bonus-Codes</a>
+    <a class="secondary" href="<?= base_url('admin/events/' . (int)$event['id'] . '/photos') ?>">Fotos verwalten</a>
+</div>
 <section class="card grid">
     <div>
         <p class="muted small">Name</p>
@@ -104,13 +108,15 @@ $colorFilters = merge_color_filters($event['color_filters'] ?? null);
     <div class="table-wrapper">
         <table>
             <thead>
-                <tr><th>Session</th><th>Fotos</th><th>Letzte Aktivität</th></tr>
+                <tr><th>Session</th><th>Fotos</th><th>Bonus</th><th>Limit</th><th>Letzte Aktivität</th></tr>
             </thead>
             <tbody>
             <?php foreach ($sessions as $session): ?>
                 <tr>
                     <td><code><?= sanitize_text($session['session_token']) ?></code></td>
                     <td><?= (int)$session['photo_count'] ?></td>
+                    <td><?= (int)($session['extra_photos'] ?? 0) ?></td>
+                    <td><?= (int)$event['max_photos_per_session'] + (int)($session['extra_photos'] ?? 0) ?></td>
                     <td><?= sanitize_text($session['last_activity_at']) ?></td>
                 </tr>
             <?php endforeach; ?>

@@ -29,3 +29,4 @@ require_once __DIR__ . '/src/EventRepository.php';
 require_once __DIR__ . '/src/SessionRepository.php';
 require_once __DIR__ . '/src/PhotoRepository.php';
 require_once __DIR__ . '/src/DeleteLogRepository.php';
+require_once __DIR__ . '/src/BonusCodeRepository.php';

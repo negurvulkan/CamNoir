@@ -13,8 +13,8 @@ class SessionRepository
     public function create(int $eventId, string $token): int
     {
         $stmt = Database::connection()->prepare(
-            'INSERT INTO sessions (event_id, session_token, photo_count, created_at, last_activity_at)'
-            . ' VALUES (:event_id, :token, 0, NOW(), NOW())'
+            'INSERT INTO sessions (event_id, session_token, photo_count, extra_photos, created_at, last_activity_at)'
+            . ' VALUES (:event_id, :token, 0, 0, NOW(), NOW())'
         );
         $stmt->execute(['event_id' => $eventId, 'token' => $token]);
         return (int) Database::connection()->lastInsertId();
@@ -24,6 +24,12 @@ class SessionRepository
     {
         $stmt = Database::connection()->prepare('UPDATE sessions SET photo_count = photo_count + 1, last_activity_at = NOW() WHERE id = :id');
         $stmt->execute(['id' => $sessionId]);
+    }
+
+    public function addExtraPhotos(int $sessionId, int $extra): void
+    {
+        $stmt = Database::connection()->prepare('UPDATE sessions SET extra_photos = extra_photos + :extra, last_activity_at = NOW() WHERE id = :id');
+        $stmt->execute(['extra' => $extra, 'id' => $sessionId]);
     }
 
     public function countByEvent(int $eventId): int
