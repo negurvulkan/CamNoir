@@ -84,7 +84,7 @@ if (preg_match('#^/api/events/(\d+)/photos$#', $uri, $matches) && $_SERVER['REQU
 if (preg_match('#^/api/photos/([a-f0-9-]+)$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
     $uuid = $matches[1];
     $photo = $photoRepo->findByUuid($uuid);
-    if (!$photo || $photo['deleted_at'] !== null || !(int)$photo['is_approved']) {
+    if (!$photo || $photo['deleted_at'] !== null || !(int)$photo['is_approved'] || $photo['delete_request_status'] === 'pending') {
         respond_not_found();
     }
     respond_json($photo);
@@ -99,6 +99,22 @@ if (preg_match('#^/api/events/(\d+)/live-photos$#', $uri, $matches) && $_SERVER[
     $since = $_GET['since'] ?? null;
     $photos = $photoRepo->findApprovedSince($eventId, $since);
     respond_json(['event' => $eventId, 'photos' => $photos]);
+}
+
+if ($uri === '/api/delete-requests' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $code = preg_replace('/[^a-zA-Z0-9]/', '', $_POST['delete_code'] ?? '');
+    $reason = trim($_POST['reason'] ?? '');
+    $note = trim($_POST['note'] ?? '');
+    $reason = substr($reason, 0, 255);
+    $note = substr($note, 0, 2000);
+    $photo = $photoRepo->requestDeletionByCode($code, $reason, $note);
+    if (!$photo) {
+        respond_json(['success' => false, 'error' => 'not_found']);
+    }
+    respond_json([
+        'success' => true,
+        'status' => $photo['delete_request_status'],
+    ]);
 }
 
 if (preg_match('#^/e/([a-zA-Z0-9-]+)/gallery$#', $uri, $matches) && $_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -234,11 +250,15 @@ if ($uri === '/delete-session') {
 if ($uri === '/delete-photo') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $code = preg_replace('/[^a-zA-Z0-9]/', '', $_POST['delete_code'] ?? '');
-        $photo = $photoRepo->deleteByCode($code);
-        if ($photo) {
-            $deleteLogRepo->log((int)$photo['event_id'], 'delete_code', $code);
-        }
-        render('delete_photo', ['status' => $photo ? 'deleted' : 'not_found']);
+        $reason = trim($_POST['reason'] ?? '');
+        $note = trim($_POST['note'] ?? '');
+        $reason = substr($reason, 0, 255);
+        $note = substr($note, 0, 2000);
+        $photo = $photoRepo->requestDeletionByCode($code, $reason, $note);
+        render('delete_photo', [
+            'status' => $photo ? $photo['delete_request_status'] : 'not_found',
+            'prefill_code' => $code,
+        ]);
     } else {
         $prefillCode = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['delete_code'] ?? '');
         render('delete_photo', ['prefill_code' => $prefillCode]);
@@ -354,6 +374,22 @@ if (preg_match('#^/admin/events/(\d+)/photos$#', $uri, $matches)) {
             $state = isset($_POST['state']) && $_POST['state'] === '1';
             if ($photoId > 0) {
                 $photoRepo->setApproval($photoId, $state);
+            }
+            header('Location: ' . base_url('admin/events/' . $eventId . '/photos'));
+            exit;
+        }
+        if ($action === 'review_delete') {
+            $photoId = (int)($_POST['photo_id'] ?? 0);
+            $decision = $_POST['decision'] ?? '';
+            if ($photoId > 0) {
+                if ($decision === 'approve') {
+                    $photo = $photoRepo->approveDeleteRequest($photoId);
+                    if ($photo) {
+                        $deleteLogRepo->log((int)$photo['event_id'], 'delete_code', $photo['delete_code'] ?? null);
+                    }
+                } elseif ($decision === 'reject') {
+                    $photoRepo->rejectDeleteRequest($photoId);
+                }
             }
             header('Location: ' . base_url('admin/events/' . $eventId . '/photos'));
             exit;

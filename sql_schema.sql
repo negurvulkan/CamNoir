@@ -33,6 +33,10 @@ CREATE TABLE photos (
     is_approved TINYINT(1) DEFAULT 0,
     created_at DATETIME NOT NULL,
     deleted_at DATETIME NULL,
+    delete_request_status ENUM('pending', 'approved', 'rejected') NULL,
+    delete_request_reason VARCHAR(255) NULL,
+    delete_request_note TEXT NULL,
+    delete_request_at DATETIME NULL,
     CONSTRAINT fk_photos_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
     CONSTRAINT fk_photos_session FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

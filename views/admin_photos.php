@@ -29,7 +29,39 @@
                 <img src="<?= base_url(str_replace(__DIR__ . '/../', '', $photo['file_path'])) ?>" alt="Foto">
                 <p class="muted small">Session: <code><?= sanitize_text($photo['session_id']) ?></code></p>
                 <p class="muted small">Löschcode: <code><?= sanitize_text($photo['delete_code']) ?></code></p>
-                <p class="muted small">Status: <?= $photo['deleted_at'] ? 'Gelöscht' : ((int)$photo['is_approved'] ? 'Freigegeben' : 'Wartet auf Freigabe') ?></p>
+                <?php
+                $statusLabel = 'Wartet auf Freigabe';
+                if ($photo['deleted_at']) {
+                    $statusLabel = 'Gelöscht';
+                } elseif ($photo['delete_request_status'] === 'pending') {
+                    $statusLabel = 'Löschantrag in Prüfung';
+                } elseif ($photo['delete_request_status'] === 'approved') {
+                    $statusLabel = 'Löschung bestätigt';
+                } elseif ($photo['delete_request_status'] === 'rejected') {
+                    $statusLabel = 'Löschantrag abgelehnt';
+                } elseif ((int)$photo['is_approved']) {
+                    $statusLabel = 'Freigegeben';
+                }
+                ?>
+                <p class="muted small">Status: <?= $statusLabel ?></p>
+                <?php if (!empty($photo['delete_request_reason']) || !empty($photo['delete_request_note'])): ?>
+                    <?php
+                    $reasonLabels = [
+                        'privacy' => 'Ich bin auf dem Bild zu sehen',
+                        'sensitive' => 'Unangemessene Inhalte',
+                        'copyright' => 'Urheberrechtliche Gründe',
+                        'other' => 'Sonstiges',
+                    ];
+                    $reasonKey = $photo['delete_request_reason'] ?: '';
+                    $reasonText = $reasonLabels[$reasonKey] ?? ($reasonKey ?: 'Kein Grund angegeben');
+                    ?>
+                    <p class="muted small">Antrag: <?= sanitize_text($reasonText) ?><br>
+                        <?php if (!empty($photo['delete_request_note'])): ?>
+                            <?= nl2br(sanitize_text($photo['delete_request_note'])) ?><br>
+                        <?php endif; ?>
+                        <?= $photo['delete_request_at'] ? 'Eingereicht: ' . sanitize_text($photo['delete_request_at']) : '' ?>
+                    </p>
+                <?php endif; ?>
                 <p class="muted small">Erstellt: <?= sanitize_text($photo['created_at']) ?></p>
                 <div class="actions">
                     <form method="POST" style="display:flex; gap:8px; align-items:center;">
@@ -38,6 +70,14 @@
                         <button class="secondary" type="submit" name="state" value="1" <?= (int)$photo['is_approved'] ? 'disabled' : '' ?>>Freigeben</button>
                         <button class="secondary" type="submit" name="state" value="0" <?= !(int)$photo['is_approved'] ? 'disabled' : '' ?>>Sperren</button>
                     </form>
+                    <?php if ($photo['delete_request_status'] === 'pending'): ?>
+                        <form method="POST" style="display:flex; gap:8px; align-items:center;">
+                            <input type="hidden" name="action" value="review_delete">
+                            <input type="hidden" name="photo_id" value="<?= (int)$photo['id'] ?>">
+                            <button class="secondary" type="submit" name="decision" value="approve">Löschung bestätigen</button>
+                            <button class="secondary" type="submit" name="decision" value="reject">Antrag ablehnen</button>
+                        </form>
+                    <?php endif; ?>
                 </div>
             </label>
         <?php endforeach; ?>

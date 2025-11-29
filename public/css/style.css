@@ -48,7 +48,7 @@ button.secondary { background: var(--button-secondary-bg); color: var(--button-s
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 .button-link { text-decoration: none; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); color: var(--link); font-weight: 700; }
 .field { display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
-.field input, .field textarea { padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #0f0f17; color: var(--text); }
+.field input, .field textarea, .field select { padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #0f0f17; color: var(--text); }
 .table, table { width: 100%; border-collapse: collapse; }
 table th, table td { padding: 8px; border-bottom: 1px solid var(--border); }
 .event-banner { width: 100%; max-height: 260px; object-fit: cover; border-radius: 12px; border: 1px solid var(--border); margin-top: 12px; }
@@ -101,5 +101,7 @@ table th, table td { padding: 8px; border-bottom: 1px solid var(--border); }
 .photo-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 1000; }
 .photo-modal.hidden { display: none; }
 .photo-modal .modal-content { position: relative; max-width: min(1200px, 90vw); max-height: 90vh; }
+.photo-modal .modal-content.form-modal { width: min(480px, 90vw); max-height: none; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.45); }
 .photo-modal img { width: 100%; height: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 24px 60px rgba(0,0,0,0.6); }
 .photo-modal button { position: absolute; top: -12px; right: -12px; background: var(--card); color: var(--text); border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; width: 40px; height: 40px; cursor: pointer; font-size: 18px; }
+.photo-modal .modal-content.form-modal button { position: static; width: auto; height: auto; border-radius: 8px; }
