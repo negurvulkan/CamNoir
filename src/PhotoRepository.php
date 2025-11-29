@@ -190,4 +190,13 @@ class PhotoRepository
         );
         $stmt->execute(['status' => 'rejected', 'id' => $photoId]);
     }
+
+    public function resetDeleteRequest(int $photoId): void
+    {
+        $stmt = Database::connection()->prepare(
+            'UPDATE photos SET delete_request_status = NULL, delete_request_reason = NULL, delete_request_note = NULL, delete_request_at = NULL'
+            . ' WHERE id = :id'
+        );
+        $stmt->execute(['id' => $photoId]);
+    }
 }

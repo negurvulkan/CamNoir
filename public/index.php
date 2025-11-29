@@ -394,6 +394,14 @@ if (preg_match('#^/admin/events/(\d+)/photos$#', $uri, $matches)) {
             header('Location: ' . base_url('admin/events/' . $eventId . '/photos'));
             exit;
         }
+        if ($action === 'reset_delete_request') {
+            $photoId = (int)($_POST['photo_id'] ?? 0);
+            if ($photoId > 0) {
+                $photoRepo->resetDeleteRequest($photoId);
+            }
+            header('Location: ' . base_url('admin/events/' . $eventId . '/photos'));
+            exit;
+        }
         if ($action === 'export') {
             $selected = array_map('intval', $_POST['photo_ids'] ?? []);
             $photos = $selected ? $photoRepo->findByIdsForEvent($eventId, $selected) : $photoRepo->findByEvent($eventId);

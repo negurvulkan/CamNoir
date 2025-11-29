@@ -13,7 +13,7 @@
     </form>
 </section>
 <section class="card">
-    <form method="POST">
+    <form method="POST" id="export-form">
         <input type="hidden" name="action" value="export">
         <div class="flex-between">
             <h2>Foto-Export</h2>
@@ -22,13 +22,19 @@
                 <button class="primary" type="submit">Auswahl exportieren</button>
             </div>
         </div>
-        <div class="grid photos">
-        <?php foreach ($photos as $photo): ?>
-            <label class="photo" style="display:block;">
-                <input type="checkbox" name="photo_ids[]" value="<?= (int)$photo['id'] ?>">
-                <img src="<?= base_url(str_replace(__DIR__ . '/../', '', $photo['file_path'])) ?>" alt="Foto">
-                <p class="muted small">Session: <code><?= sanitize_text($photo['session_id']) ?></code></p>
-                <p class="muted small">Löschcode: <code><?= sanitize_text($photo['delete_code']) ?></code></p>
+    </form>
+    <div class="grid photos">
+    <?php foreach ($photos as $photo): ?>
+        <div class="photo">
+            <div style="display:flex; gap:8px; align-items:flex-start;">
+                <?php $photoInputId = 'photo-' . (int)$photo['id']; ?>
+                <input type="checkbox" id="<?= $photoInputId ?>" name="photo_ids[]" value="<?= (int)$photo['id'] ?>" form="export-form">
+                <label for="<?= $photoInputId ?>" style="flex:1 1 auto; display:block;">
+                    <img src="<?= base_url(str_replace(__DIR__ . '/../', '', $photo['file_path'])) ?>" alt="Foto">
+                </label>
+            </div>
+            <p class="muted small">Session: <code><?= sanitize_text($photo['session_id']) ?></code></p>
+            <p class="muted small">Löschcode: <code><?= sanitize_text($photo['delete_code']) ?></code></p>
                 <?php
                 $statusLabel = 'Wartet auf Freigabe';
                 if ($photo['deleted_at']) {
@@ -43,46 +49,51 @@
                     $statusLabel = 'Freigegeben';
                 }
                 ?>
-                <p class="muted small">Status: <?= $statusLabel ?></p>
-                <?php if (!empty($photo['delete_request_reason']) || !empty($photo['delete_request_note'])): ?>
-                    <?php
-                    $reasonLabels = [
-                        'privacy' => 'Ich bin auf dem Bild zu sehen',
-                        'sensitive' => 'Unangemessene Inhalte',
-                        'copyright' => 'Urheberrechtliche Gründe',
-                        'other' => 'Sonstiges',
-                    ];
-                    $reasonKey = $photo['delete_request_reason'] ?: '';
-                    $reasonText = $reasonLabels[$reasonKey] ?? ($reasonKey ?: 'Kein Grund angegeben');
-                    ?>
-                    <p class="muted small">Antrag: <?= sanitize_text($reasonText) ?><br>
-                        <?php if (!empty($photo['delete_request_note'])): ?>
-                            <?= nl2br(sanitize_text($photo['delete_request_note'])) ?><br>
-                        <?php endif; ?>
-                        <?= $photo['delete_request_at'] ? 'Eingereicht: ' . sanitize_text($photo['delete_request_at']) : '' ?>
-                    </p>
-                <?php endif; ?>
-                <p class="muted small">Erstellt: <?= sanitize_text($photo['created_at']) ?></p>
-                <div class="actions">
-                    <form method="POST" style="display:flex; gap:8px; align-items:center;">
-                        <input type="hidden" name="action" value="approve">
-                        <input type="hidden" name="photo_id" value="<?= (int)$photo['id'] ?>">
-                        <button class="secondary" type="submit" name="state" value="1" <?= (int)$photo['is_approved'] ? 'disabled' : '' ?>>Freigeben</button>
-                        <button class="secondary" type="submit" name="state" value="0" <?= !(int)$photo['is_approved'] ? 'disabled' : '' ?>>Sperren</button>
-                    </form>
-                    <?php if ($photo['delete_request_status'] === 'pending'): ?>
-                        <form method="POST" style="display:flex; gap:8px; align-items:center;">
-                            <input type="hidden" name="action" value="review_delete">
-                            <input type="hidden" name="photo_id" value="<?= (int)$photo['id'] ?>">
-                            <button class="secondary" type="submit" name="decision" value="approve">Löschung bestätigen</button>
-                            <button class="secondary" type="submit" name="decision" value="reject">Antrag ablehnen</button>
-                        </form>
+            <p class="muted small">Status: <?= $statusLabel ?></p>
+            <?php if (!empty($photo['delete_request_reason']) || !empty($photo['delete_request_note'])): ?>
+                <?php
+                $reasonLabels = [
+                    'privacy' => 'Ich bin auf dem Bild zu sehen',
+                    'sensitive' => 'Unangemessene Inhalte',
+                    'copyright' => 'Urheberrechtliche Gründe',
+                    'other' => 'Sonstiges',
+                ];
+                $reasonKey = $photo['delete_request_reason'] ?: '';
+                $reasonText = $reasonLabels[$reasonKey] ?? ($reasonKey ?: 'Kein Grund angegeben');
+                ?>
+                <p class="muted small">Antrag: <?= sanitize_text($reasonText) ?><br>
+                    <?php if (!empty($photo['delete_request_note'])): ?>
+                        <?= nl2br(sanitize_text($photo['delete_request_note'])) ?><br>
                     <?php endif; ?>
-                </div>
-            </label>
-        <?php endforeach; ?>
+                    <?= $photo['delete_request_at'] ? 'Eingereicht: ' . sanitize_text($photo['delete_request_at']) : '' ?>
+                </p>
+            <?php endif; ?>
+            <p class="muted small">Erstellt: <?= sanitize_text($photo['created_at']) ?></p>
+            <div class="actions">
+                <form method="POST" style="display:flex; gap:8px; align-items:center;">
+                    <input type="hidden" name="action" value="approve">
+                    <input type="hidden" name="photo_id" value="<?= (int)$photo['id'] ?>">
+                    <button class="secondary" type="submit" name="state" value="1" <?= (int)$photo['is_approved'] ? 'disabled' : '' ?>>Freigeben</button>
+                    <button class="secondary" type="submit" name="state" value="0" <?= !(int)$photo['is_approved'] ? 'disabled' : '' ?>>Sperren</button>
+                </form>
+                <?php if ($photo['delete_request_status'] === 'pending'): ?>
+                    <form method="POST" style="display:flex; gap:8px; align-items:center;">
+                        <input type="hidden" name="action" value="review_delete">
+                        <input type="hidden" name="photo_id" value="<?= (int)$photo['id'] ?>">
+                        <button class="secondary" type="submit" name="decision" value="approve">Löschung bestätigen</button>
+                        <button class="secondary" type="submit" name="decision" value="reject">Antrag ablehnen</button>
+                    </form>
+                <?php elseif ($photo['delete_request_status'] !== null): ?>
+                    <form method="POST" style="display:flex; gap:8px; align-items:center;">
+                        <input type="hidden" name="action" value="reset_delete_request">
+                        <input type="hidden" name="photo_id" value="<?= (int)$photo['id'] ?>">
+                        <button class="secondary" type="submit">Löschantrag zurücksetzen</button>
+                    </form>
+                <?php endif; ?>
+            </div>
         </div>
-    </form>
+    <?php endforeach; ?>
+    </div>
 </section>
 <?php
 $content = ob_get_clean();
