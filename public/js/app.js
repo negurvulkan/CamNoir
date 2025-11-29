@@ -11,6 +11,7 @@ const editorView = document.getElementById('editor-view');
 const editorCanvas = document.getElementById('editor-canvas');
 const addTextBtn = document.getElementById('add-text-btn');
 const stickerPalette = document.getElementById('sticker-palette');
+const framePalette = document.getElementById('frame-palette');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
 const editConfirmBtn = document.getElementById('edit-confirm-btn');
 const scaleUpBtn = document.getElementById('overlay-scale-up');
@@ -28,6 +29,8 @@ let dragStart = { x: 0, y: 0 };
 let backgroundImage = null;
 const editorCtx = editorCanvas ? editorCanvas.getContext('2d') : null;
 const stickerCache = new Map();
+const frameCache = new Map();
+let frameOverlay = null;
 
 function showToast(message) {
     toast.textContent = message;
@@ -97,6 +100,7 @@ function resetEditorState() {
     draggingOverlay = null;
     dragStart = { x: 0, y: 0 };
     backgroundImage = null;
+    frameOverlay = null;
     if (editorCtx && editorCanvas) {
         editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
     }
@@ -157,6 +161,13 @@ function drawOverlay(overlay) {
     }
 }
 
+function drawFrame(frame) {
+    if (!editorCtx || !editorCanvas || !frame.image) return;
+    editorCtx.save();
+    editorCtx.drawImage(frame.image, 0, 0, editorCanvas.width, editorCanvas.height);
+    editorCtx.restore();
+}
+
 function renderEditor(showSelection = true) {
     if (!editorCtx || !editorCanvas || !backgroundImage) return;
     editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
@@ -165,6 +176,9 @@ function renderEditor(showSelection = true) {
         if (!showSelection) overlay.selected = false;
         drawOverlay(overlay);
     });
+    if (frameOverlay?.image) {
+        drawFrame(frameOverlay);
+    }
 }
 
 function enterEditMode(image) {
@@ -172,6 +186,7 @@ function enterEditMode(image) {
     backgroundImage = image;
     overlays = [];
     selectedOverlay = null;
+    frameOverlay = null;
     const maxWidth = 1600;
     const scale = image.width > maxWidth ? maxWidth / image.width : 1;
     editorCanvas.width = Math.round(image.width * scale);
@@ -208,6 +223,32 @@ function addStickerOverlay(src) {
     img.onload = () => {
         stickerCache.set(src, img);
         addOverlay(img);
+    };
+    img.crossOrigin = 'anonymous';
+    img.src = src;
+}
+
+function setFrameOverlay(src) {
+    if (!editorCanvas) return;
+
+    const applyFrame = (img) => {
+        frameOverlay = {
+            type: 'frame',
+            image: img,
+            width: editorCanvas.width,
+            height: editorCanvas.height
+        };
+        renderEditor();
+    };
+
+    if (frameCache.has(src)) {
+        applyFrame(frameCache.get(src));
+        return;
+    }
+    const img = new Image();
+    img.onload = () => {
+        frameCache.set(src, img);
+        applyFrame(img);
     };
     img.crossOrigin = 'anonymous';
     img.src = src;
@@ -411,6 +452,17 @@ stickerPalette?.addEventListener('click', (e) => {
     if (!btn) return;
     const src = btn.getAttribute('data-src');
     addStickerOverlay(src);
+});
+framePalette?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-src], [data-clear-frame]');
+    if (!btn) return;
+    if (btn.hasAttribute('data-clear-frame')) {
+        frameOverlay = null;
+        renderEditor();
+        return;
+    }
+    const src = btn.getAttribute('data-src');
+    setFrameOverlay(src);
 });
 editorCanvas?.addEventListener('pointerdown', onPointerDown);
 window.addEventListener('pointermove', onPointerMove);
