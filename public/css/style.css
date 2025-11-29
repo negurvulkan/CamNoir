@@ -63,6 +63,7 @@ table th, table td { padding: 8px; border-bottom: 1px solid var(--border); }
 .photos { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .photo { background: var(--card); padding: 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); }
 .photo img { width: 100%; border-radius: 6px; }
+.photo .actions { flex-direction: column; align-items: flex-start; }
 .qr-preview { margin-top: 12px; display: flex; align-items: center; gap: 12px; }
 .qr-preview svg, .qr-preview canvas { background: #fff; padding: 6px; border-radius: 12px; }
 .table-wrapper { overflow-x: auto; }
