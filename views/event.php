@@ -31,6 +31,8 @@ if (is_dir($fontDir)) {
         ];
     }
 }
+$theme = merge_theme_settings($event['theme_settings'] ?? null);
+$themeStyles = theme_style_block($theme);
 ?>
 <div class="header">
     <div>
@@ -41,6 +43,9 @@ if (is_dir($fontDir)) {
         <p class="muted small">Event-Galerie ansehen: <a href="<?= base_url('e/' . sanitize_text($event['slug']) . '/gallery') ?>">Zur Übersicht</a></p>
         <p class="muted small">Live-Diashow: <a href="<?= base_url('e/' . sanitize_text($event['slug']) . '/slideshow') ?>">Beamer-Ansicht öffnen</a></p>
     </div>
+    <?php if (!empty($event['banner_url'])): ?>
+        <img src="<?= sanitize_text($event['banner_url']) ?>" alt="Event Banner" class="event-banner">
+    <?php endif; ?>
 </div>
 
 <section class="card">

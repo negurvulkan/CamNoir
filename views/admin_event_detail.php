@@ -1,4 +1,6 @@
-<?php ob_start(); ?>
+<?php ob_start();
+$theme = merge_theme_settings($event['theme_settings'] ?? null);
+?>
 <div class="flex-between">
     <h1>Event-Details</h1>
     <a class="secondary" href="<?= base_url('admin/events') ?>">Zurück</a>
@@ -10,6 +12,7 @@
         <p class="muted">Slug: <code><?= sanitize_text($event['slug']) ?></code></p>
         <p class="muted">Frame-Branding: <?= $event['frame_branding_text'] ? sanitize_text($event['frame_branding_text']) : '–' ?></p>
         <p class="muted">Auto-Freigabe: <?= (int)$event['auto_approve_photos'] ? 'Aktiv' : 'Deaktiviert' ?></p>
+        <p class="muted">Banner: <?= $event['banner_url'] ? '<a href="' . sanitize_text($event['banner_url']) . '" target="_blank">gepflegt</a>' : '–' ?></p>
     </div>
     <div>
         <p class="muted small">Aktive Sessions</p>
@@ -30,6 +33,18 @@
     <div>
         <p class="muted small">Löschungen</p>
         <h2><?= (int)$delete_stats['delete_code'] ?> Codes / <?= (int)$delete_stats['session'] ?> Sessions</h2>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Theme-Konfiguration</h2>
+    <div class="grid" style="gap: 8px;">
+        <?php foreach ($theme as $key => $value): ?>
+            <div>
+                <p class="muted small"><?= sanitize_text($key) ?></p>
+                <code><?= sanitize_text($value) ?></code>
+            </div>
+        <?php endforeach; ?>
     </div>
 </section>
 

@@ -1,9 +1,11 @@
 <?php
 ob_start();
+$theme = merge_theme_settings($event['theme_settings'] ?? null);
+$themeStyles = theme_style_block($theme);
 ?>
 <style>
-body { background: #030308; color: #f5f5f5; }
-.slideshow { position: relative; width: 100%; min-height: 70vh; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); background: radial-gradient(circle at 20% 20%, rgba(100,100,150,0.2), transparent 35%), #050509; }
+body { background: var(--bg); color: var(--text); }
+.slideshow { position: relative; width: 100%; min-height: 70vh; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 18px; border: 1px solid var(--border); background: radial-gradient(circle at 20% 20%, var(--bg-accent), transparent 35%), var(--bg); }
 .slideshow img { max-height: 80vh; max-width: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); animation: fadeGlitch 2s ease; }
 .slideshow .meta { position: absolute; bottom: 12px; left: 12px; padding: 8px 12px; border-radius: 8px; background: rgba(0,0,0,0.55); font-size: 14px; }
 @keyframes fadeGlitch { 0% { opacity: 0; transform: scale(0.98); } 20% { opacity: 1; } 60% { filter: hue-rotate(-6deg); } 100% { opacity: 1; transform: scale(1); filter: none; } }
