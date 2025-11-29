@@ -16,6 +16,7 @@ Minimalistische Web-App, mit der Besucher:innen per QR-Code eine digitale Einweg
 11. Event-Dashboards mit Statistiken, Delete-Log und QR-Code-Generator.
 12. Konfigurierbare Auto-Löschung alter Fotos per Cron-Job.
 13. Platzhalterseite für Datenschutzerklärung & keine Speicherung personenbezogener Daten.
+14. Lokale Bildanpassungen (Helligkeit/Kontrast) vor Filtern, Stickern & Rahmen.
 
 ## Setup
 1. Kopiere `.env.example` zu `.env` und passe Datenbank & Admin-Passwort an.
@@ -36,6 +37,11 @@ Minimalistische Web-App, mit der Besucher:innen per QR-Code eine digitale Einweg
 
 ## Auto-Cleanup
 `scripts/cleanup.php` löscht Fotos, die älter als die Event-Konfiguration `auto_delete_days` sind. Per Cron z. B. täglich ausführen.
+
+## Bildanpassung im Editor
+- Neuer Tab „Bild“ mit Reglern für Helligkeit und Kontrast.
+- Anpassungen wirken direkt auf die Pixel des Basisfotos (Canvas) und werden vor CSS-Farbfiltern, PNG-Overlays, Stickern, Text und Rahmen angewendet.
+- Ein Reset-Button stellt die Standardwerte wieder her, wenn die Regler nicht genutzt werden sollen.
 
 ## Sicherheit & Datenschutz
 - Keine personenbezogenen Daten werden gespeichert.

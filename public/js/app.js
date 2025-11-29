@@ -30,6 +30,11 @@ const overlayScaleRange = document.getElementById('overlay-scale-range');
 const overlayRotationRange = document.getElementById('overlay-rotation-range');
 const overlayScaleValue = document.getElementById('overlay-scale-value');
 const overlayRotationValue = document.getElementById('overlay-rotation-value');
+const brightnessRange = document.getElementById('brightness-range');
+const contrastRange = document.getElementById('contrast-range');
+const brightnessValue = document.getElementById('brightness-value');
+const contrastValue = document.getElementById('contrast-value');
+const adjustmentResetBtn = document.getElementById('adjustment-reset-btn');
 const fontSelect = document.getElementById('font-select');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
 const editConfirmBtn = document.getElementById('edit-confirm-btn');
@@ -100,6 +105,15 @@ let overlayFilterScope = 'photo';
 let overlayFilterImage = null;
 let overlayFilterBlendMode = overlayBlendSelect?.value || 'screen';
 let overlayFilterOpacity = overlayOpacityInput ? Number(overlayOpacityInput.value) / 100 : 0.8;
+const adjustmentDefaults = { brightness: 0, contrast: 0 };
+let imageAdjustments = { ...adjustmentDefaults };
+const adjustedBaseCanvas = document.createElement('canvas');
+const adjustedBaseCtx = adjustedBaseCanvas.getContext('2d');
+let adjustedBackgroundImage = null;
+
+function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+}
 
 function updateTakeButtonAvailability() {
     if (!takeBtn) return;
@@ -338,11 +352,50 @@ function resetEditorState() {
     draggingOverlay = null;
     dragStart = { x: 0, y: 0 };
     backgroundImage = null;
+    adjustedBackgroundImage = null;
     frameOverlay = null;
     if (editorCtx && editorCanvas) {
         editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
     }
     updateTransformControls();
+}
+
+function updateAdjustmentUI() {
+    if (brightnessRange) brightnessRange.value = imageAdjustments.brightness;
+    if (contrastRange) contrastRange.value = imageAdjustments.contrast;
+    if (brightnessValue) brightnessValue.textContent = imageAdjustments.brightness.toString();
+    if (contrastValue) contrastValue.textContent = imageAdjustments.contrast.toString();
+}
+
+function applyImageAdjustments(triggerRender = true) {
+    if (!backgroundImage || !editorCanvas || !adjustedBaseCtx) return;
+    if (adjustedBaseCanvas.width !== editorCanvas.width || adjustedBaseCanvas.height !== editorCanvas.height) {
+        adjustedBaseCanvas.width = editorCanvas.width;
+        adjustedBaseCanvas.height = editorCanvas.height;
+    }
+    adjustedBaseCtx.clearRect(0, 0, adjustedBaseCanvas.width, adjustedBaseCanvas.height);
+    adjustedBaseCtx.drawImage(backgroundImage, 0, 0, editorCanvas.width, editorCanvas.height);
+    const imageData = adjustedBaseCtx.getImageData(0, 0, adjustedBaseCanvas.width, adjustedBaseCanvas.height);
+    const data = imageData.data;
+    const brightnessOffset = (clamp(imageAdjustments.brightness, -100, 100) / 100) * 255;
+    const contrast = clamp(imageAdjustments.contrast, -100, 100);
+    const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+    for (let i = 0; i < data.length; i += 4) {
+        data[i] = clamp(contrastFactor * (data[i] - 128) + 128 + brightnessOffset, 0, 255);
+        data[i + 1] = clamp(contrastFactor * (data[i + 1] - 128) + 128 + brightnessOffset, 0, 255);
+        data[i + 2] = clamp(contrastFactor * (data[i + 2] - 128) + 128 + brightnessOffset, 0, 255);
+    }
+
+    adjustedBaseCtx.putImageData(imageData, 0, 0);
+    adjustedBackgroundImage = adjustedBaseCanvas;
+    if (triggerRender) renderEditor();
+}
+
+function resetImageAdjustments(triggerRender = true) {
+    imageAdjustments = { ...adjustmentDefaults };
+    updateAdjustmentUI();
+    applyImageAdjustments(triggerRender);
 }
 
 function getOverlayBounds(overlay) {
@@ -515,7 +568,8 @@ function renderEditor(showSelection = true) {
     if (activeColorFilter?.css && activeColorFilter.css !== 'none') {
         editorCtx.filter = activeColorFilter.css;
     }
-    editorCtx.drawImage(backgroundImage, 0, 0, editorCanvas.width, editorCanvas.height);
+    const baseLayer = adjustedBackgroundImage || backgroundImage;
+    editorCtx.drawImage(baseLayer, 0, 0, editorCanvas.width, editorCanvas.height);
     editorCtx.restore();
     drawFilterTexture('photo');
     overlays.forEach((overlay) => {
@@ -538,7 +592,8 @@ function enterEditMode(image) {
     const scale = image.width > maxWidth ? maxWidth / image.width : 1;
     editorCanvas.width = Math.round(image.width * scale);
     editorCanvas.height = Math.round(image.height * scale);
-    setActiveTab('filter');
+    resetImageAdjustments(false);
+    setActiveTab('image');
     updateTransformControls();
     toggleViews(true);
     renderEditor();
@@ -902,6 +957,21 @@ overlayRotationRange?.addEventListener('input', () => {
     updateTransformControls();
     renderEditor();
 });
+brightnessRange?.addEventListener('input', () => {
+    const value = Number(brightnessRange.value);
+    if (Number.isNaN(value)) return;
+    imageAdjustments.brightness = clamp(value, -100, 100);
+    updateAdjustmentUI();
+    applyImageAdjustments();
+});
+contrastRange?.addEventListener('input', () => {
+    const value = Number(contrastRange.value);
+    if (Number.isNaN(value)) return;
+    imageAdjustments.contrast = clamp(value, -100, 100);
+    updateAdjustmentUI();
+    applyImageAdjustments();
+});
+adjustmentResetBtn?.addEventListener('click', () => resetImageAdjustments());
 framePalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-src], [data-clear-frame]');
     if (!btn) return;
@@ -996,7 +1066,7 @@ if (overlayOpacityValue && overlayOpacityInput?.value) {
 if (colorFilterSelect?.value) {
     selectedColorFilterId = colorFilterSelect.value;
 }
-setActiveTab('filter');
+ setActiveTab('image');
 setOverlayFilter(selectedOverlayFilterId);
 updateRemaining(remaining);
 processQueue();
