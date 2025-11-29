@@ -1,5 +1,6 @@
 <?php ob_start();
 $defaultTheme = default_theme_settings();
+$colorFilterExamples = "Monochrom | grayscale(1) contrast(1.05)\nWarm Glow | sepia(0.2) saturate(1.1) brightness(1.05)";
 ?>
 <div class="flex-between">
     <h1>Events</h1>
@@ -34,6 +35,11 @@ $defaultTheme = default_theme_settings();
         <label class="field">Event-Banner (URL)
             <input type="url" name="banner_url" placeholder="https://example.com/banner.jpg">
         </label>
+        <div class="field" style="grid-column: 1 / -1;">
+            <p class="muted small" style="margin: 0 0 6px;">Zusätzliche Farbfilter (optional, ein Filter pro Zeile im Format <code>Name | CSS Filter</code>)</p>
+            <textarea name="color_filters" rows="4" placeholder="<?= sanitize_text($colorFilterExamples) ?>"></textarea>
+            <p class="muted small" style="margin: 4px 0 0;">Standard-Filter bleiben immer verfügbar. Du kannst hier weitere CSS-Filterdefinitionen hinzufügen (z. B. <code>hue-rotate(12deg) contrast(1.1)</code>).</p>
+        </div>
         <div class="field" style="grid-column: 1 / -1;">
             <p class="muted small" style="margin: 0 0 6px;">Theme-Variablen (lassen sich frei per CSS setzen, Standardwerte vorbelegt)</p>
             <div class="grid" style="gap: 10px;">
@@ -87,6 +93,7 @@ $defaultTheme = default_theme_settings();
         </thead>
         <tbody>
         <?php foreach ($events as $event): ?>
+            <?php $eventData = $event; $eventData['color_filters_lines'] = color_filters_to_lines($event['color_filters'] ?? null); ?>
             <tr>
                 <td><?= sanitize_text($event['name']) ?></td>
                 <td><code><?= sanitize_text($event['slug']) ?></code></td>
@@ -96,7 +103,7 @@ $defaultTheme = default_theme_settings();
                 <td>
                     <a class="secondary" href="<?= base_url('admin/events/' . (int)$event['id']) ?>">Details</a>
                     <a class="secondary" href="<?= base_url('admin/events/' . (int)$event['id'] . '/photos') ?>">Fotos</a>
-                    <button class="secondary" onclick='fillEvent(<?= json_encode($event) ?>)'>Bearbeiten</button>
+                    <button class="secondary" onclick='fillEvent(<?= json_encode($eventData) ?>)'>Bearbeiten</button>
                     <a class="secondary" href="<?= base_url('e/' . sanitize_text($event['slug'])) ?>" target="_blank">Event-Link</a>
                 </td>
             </tr>
@@ -116,6 +123,7 @@ function fillEvent(event) {
     document.querySelector('input[name="frame_branding_text"]').value = event.frame_branding_text || '';
     document.querySelector('input[name="auto_approve_photos"]').checked = !!parseInt(event.auto_approve_photos);
     document.querySelector('input[name="banner_url"]').value = event.banner_url || '';
+    document.querySelector('textarea[name="color_filters"]').value = event.color_filters_lines || '';
     const defaults = <?= json_encode($defaultTheme) ?>;
     let theme = {...defaults};
     if (event.theme_settings) {

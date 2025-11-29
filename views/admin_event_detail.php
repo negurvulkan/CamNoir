@@ -1,5 +1,6 @@
 <?php ob_start();
 $theme = merge_theme_settings($event['theme_settings'] ?? null);
+$colorFilters = merge_color_filters($event['color_filters'] ?? null);
 ?>
 <div class="flex-between">
     <h1>Event-Details</h1>
@@ -33,6 +34,23 @@ $theme = merge_theme_settings($event['theme_settings'] ?? null);
     <div>
         <p class="muted small">Löschungen</p>
         <h2><?= (int)$delete_stats['delete_code'] ?> Codes / <?= (int)$delete_stats['session'] ?> Sessions</h2>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Farbfilter</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Name</th><th>CSS Filter</th></tr></thead>
+            <tbody>
+                <?php foreach ($colorFilters as $filter): ?>
+                    <tr>
+                        <td><?= sanitize_text($filter['name']) ?></td>
+                        <td><code><?= sanitize_text($filter['css']) ?></code></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
     </div>
 </section>
 

@@ -101,6 +101,140 @@ function merge_theme_settings(?string $jsonTheme): array
     return $defaults;
 }
 
+function default_color_filters(): array
+{
+    return [
+        ['id' => 'none', 'name' => 'Kein Filter', 'css' => 'none'],
+        ['id' => 'noir-classic', 'name' => 'Noir Classic', 'css' => 'grayscale(1) contrast(1.12) brightness(0.96)'],
+        ['id' => 'noir-punch', 'name' => 'Noir Punch', 'css' => 'grayscale(0.85) contrast(1.24) brightness(0.94) saturate(0.9)'],
+        ['id' => 'noir-soft', 'name' => 'Noir Soft', 'css' => 'grayscale(1) contrast(1.05) brightness(1.02) saturate(0.8)'],
+        ['id' => 'noir-warm', 'name' => 'Warm Noir', 'css' => 'grayscale(0.8) sepia(0.12) contrast(1.1) brightness(0.98)'],
+    ];
+}
+
+function sanitize_color_filter_css(string $value): string
+{
+    $trimmed = trim($value);
+    if ($trimmed === '') {
+        return '';
+    }
+    if (!preg_match('/^[a-zA-Z0-9()#.,% \-+]*$/', $trimmed)) {
+        return '';
+    }
+    return $trimmed;
+}
+
+function normalize_filter_id(string $name, int $index): string
+{
+    $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $name));
+    $slug = trim($slug, '-');
+    if ($slug === '') {
+        $slug = 'filter-' . $index;
+    }
+    return $slug;
+}
+
+function parse_color_filters_input(?string $raw): array
+{
+    if (!$raw) {
+        return [];
+    }
+    $lines = preg_split('/\r?\n/', $raw);
+    $filters = [];
+    $usedIds = [];
+    $lineIndex = 0;
+    foreach ($lines as $line) {
+        $lineIndex++;
+        $trimmed = trim($line);
+        if ($trimmed === '') {
+            continue;
+        }
+        $name = '';
+        $css = '';
+        if (strpos($trimmed, '|') !== false) {
+            [$name, $css] = array_map('trim', explode('|', $trimmed, 2));
+        } elseif (strpos($trimmed, ':') !== false) {
+            [$name, $css] = array_map('trim', explode(':', $trimmed, 2));
+        } else {
+            $name = $trimmed;
+        }
+        if ($name === '') {
+            $name = 'Filter ' . $lineIndex;
+        }
+        $css = sanitize_color_filter_css($css);
+        if ($css === '') {
+            continue;
+        }
+        $id = normalize_filter_id($name, $lineIndex);
+        $dedupedId = $id;
+        $suffix = 1;
+        while (in_array($dedupedId, $usedIds, true)) {
+            $suffix++;
+            $dedupedId = $id . '-' . $suffix;
+        }
+        $usedIds[] = $dedupedId;
+        $filters[] = [
+            'id' => $dedupedId,
+            'name' => $name,
+            'css' => $css,
+        ];
+    }
+    return $filters;
+}
+
+function merge_color_filters(?string $jsonFilters): array
+{
+    $defaults = default_color_filters();
+    $filters = $defaults;
+    if ($jsonFilters) {
+        $data = json_decode($jsonFilters, true);
+        if (is_array($data)) {
+            foreach ($data as $index => $filter) {
+                if (!isset($filter['name'], $filter['css'])) {
+                    continue;
+                }
+                $id = isset($filter['id']) && is_string($filter['id']) ? normalize_filter_id($filter['id'], $index + 1) : normalize_filter_id($filter['name'], $index + 1);
+                $css = sanitize_color_filter_css((string) $filter['css']);
+                if ($css === '') {
+                    continue;
+                }
+                $filters[] = [
+                    'id' => $id,
+                    'name' => (string) $filter['name'],
+                    'css' => $css,
+                ];
+            }
+        }
+    }
+
+    $unique = [];
+    foreach ($filters as $filter) {
+        $id = $filter['id'];
+        if (isset($unique[$id])) {
+            continue;
+        }
+        $unique[$id] = $filter;
+    }
+
+    return array_values($unique);
+}
+
+function color_filters_to_lines(?string $jsonFilters): string
+{
+    $data = json_decode($jsonFilters ?: '[]', true);
+    if (!is_array($data) || empty($data)) {
+        return '';
+    }
+    $lines = [];
+    foreach ($data as $filter) {
+        if (!isset($filter['name'], $filter['css'])) {
+            continue;
+        }
+        $lines[] = trim((string) $filter['name']) . ' | ' . trim((string) $filter['css']);
+    }
+    return implode("\n", $lines);
+}
+
 function theme_style_block(array $theme): string
 {
     $vars = [
