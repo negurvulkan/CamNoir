@@ -31,7 +31,8 @@ class PhotoRepository
         if (is_file($photo['file_path'])) {
             unlink($photo['file_path']);
         }
-        $db->prepare('UPDATE photos SET deleted_at = NOW() WHERE id = :id')->execute(['id' => $photo['id']]);
+        $db->prepare('UPDATE photos SET deleted_at = NOW(), delete_request_status = :status WHERE id = :id')
+            ->execute(['id' => $photo['id'], 'status' => 'approved']);
         return $photo;
     }
 
@@ -44,14 +45,19 @@ class PhotoRepository
 
     public function findPublicByEvent(int $eventId): array
     {
-        $stmt = Database::connection()->prepare('SELECT * FROM photos WHERE event_id = :event_id AND deleted_at IS NULL AND is_approved = 1 ORDER BY created_at DESC');
+        $stmt = Database::connection()->prepare(
+            "SELECT * FROM photos WHERE event_id = :event_id AND deleted_at IS NULL AND is_approved = 1"
+            . " AND (delete_request_status IS NULL OR delete_request_status = 'rejected')"
+            . ' ORDER BY created_at DESC'
+        );
         $stmt->execute(['event_id' => $eventId]);
         return $stmt->fetchAll();
     }
 
     public function findApprovedSince(int $eventId, ?string $since = null): array
     {
-        $query = 'SELECT * FROM photos WHERE event_id = :event_id AND deleted_at IS NULL AND is_approved = 1';
+        $query = "SELECT * FROM photos WHERE event_id = :event_id AND deleted_at IS NULL AND is_approved = 1"
+            . " AND (delete_request_status IS NULL OR delete_request_status = 'rejected')";
         $params = ['event_id' => $eventId];
         if ($since) {
             $query .= ' AND created_at > :since';
@@ -125,5 +131,63 @@ class PhotoRepository
     {
         $stmt = Database::connection()->prepare('UPDATE photos SET is_approved = :approved WHERE id = :id');
         $stmt->execute(['approved' => $approved ? 1 : 0, 'id' => $photoId]);
+    }
+
+    public function findById(int $photoId): ?array
+    {
+        $stmt = Database::connection()->prepare('SELECT * FROM photos WHERE id = :id');
+        $stmt->execute(['id' => $photoId]);
+        $photo = $stmt->fetch();
+        return $photo ?: null;
+    }
+
+    public function requestDeletionByCode(string $deleteCode, ?string $reason, ?string $note): ?array
+    {
+        $db = Database::connection();
+        $stmt = $db->prepare('SELECT * FROM photos WHERE delete_code = :code AND deleted_at IS NULL');
+        $stmt->execute(['code' => $deleteCode]);
+        $photo = $stmt->fetch();
+        if (!$photo) {
+            return null;
+        }
+
+        $db->prepare(
+            'UPDATE photos SET delete_request_status = :status, delete_request_reason = :reason, delete_request_note = :note, delete_request_at = NOW()'
+            . ' WHERE id = :id'
+        )->execute([
+            'status' => 'pending',
+            'reason' => $reason ?: null,
+            'note' => $note ?: null,
+            'id' => $photo['id'],
+        ]);
+
+        return $this->findById((int) $photo['id']);
+    }
+
+    public function approveDeleteRequest(int $photoId): ?array
+    {
+        $photo = $this->findById($photoId);
+        if (!$photo) {
+            return null;
+        }
+
+        if (is_file($photo['file_path'])) {
+            unlink($photo['file_path']);
+        }
+
+        $stmt = Database::connection()->prepare(
+            'UPDATE photos SET deleted_at = NOW(), delete_request_status = :status WHERE id = :id'
+        );
+        $stmt->execute(['status' => 'approved', 'id' => $photoId]);
+
+        return $this->findById($photoId);
+    }
+
+    public function rejectDeleteRequest(int $photoId): void
+    {
+        $stmt = Database::connection()->prepare(
+            'UPDATE photos SET delete_request_status = :status WHERE id = :id'
+        );
+        $stmt->execute(['status' => 'rejected', 'id' => $photoId]);
     }
 }
