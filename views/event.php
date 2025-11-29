@@ -2,10 +2,17 @@
 ob_start();
 $remaining = (int)$event['max_photos_per_session'] - (int)$session['photo_count'];
 $stickerDir = __DIR__ . '/../public/stickers';
+$frameDir = __DIR__ . '/../public/frames';
 $stickers = [];
+$frames = [];
 if (is_dir($stickerDir)) {
     foreach (glob($stickerDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
         $stickers[] = base_url('stickers/' . basename($file));
+    }
+}
+if (is_dir($frameDir)) {
+    foreach (glob($frameDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
+        $frames[] = base_url('frames/' . basename($file));
     }
 }
 ?>
@@ -40,6 +47,22 @@ if (is_dir($stickerDir)) {
         <div class="editor-layout">
             <canvas id="editor-canvas"></canvas>
             <div id="editor-tools">
+                <div class="tool-header">
+                    <p class="muted small">Rahmen hinzufügen</p>
+                    <p class="muted small">Wähle einen Rahmen, der über dem Foto liegt.</p>
+                </div>
+                <div id="frame-palette" class="sticker-palette frame-palette">
+                    <button type="button" class="sticker-btn frame-btn no-frame" data-clear-frame="true">Kein Rahmen</button>
+                    <?php if (!empty($frames)): ?>
+                        <?php foreach ($frames as $frame): ?>
+                            <button type="button" class="sticker-btn frame-btn" data-src="<?= sanitize_text($frame) ?>">
+                                <img src="<?= sanitize_text($frame) ?>" alt="Rahmen" />
+                            </button>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="muted small">Noch keine Rahmen hochgeladen.</p>
+                    <?php endif; ?>
+                </div>
                 <div class="tool-header">
                     <p class="muted small">Sticker hinzufügen</p>
                     <p class="muted small">Tipp: Ziehe Sticker/Text, um sie zu verschieben.</p>
