@@ -10,6 +10,7 @@ const pageHeader = document.querySelector('.header');
 const cameraView = document.getElementById('camera-view');
 const editorView = document.getElementById('editor-view');
 const editorCanvas = document.getElementById('editor-canvas');
+const torchBtn = document.getElementById('toggle-torch');
 const tabButtons = document.querySelectorAll('[data-tab-target]');
 const tabPanels = document.querySelectorAll('[data-tab-panel]');
 const transformPanel = document.getElementById('transform-panel');
@@ -86,6 +87,8 @@ let selectedOverlay = null;
 let draggingOverlay = null;
 let dragStart = { x: 0, y: 0 };
 let backgroundImage = null;
+let torchEnabled = false;
+let torchSupported = false;
 const editorCtx = editorCanvas ? editorCanvas.getContext('2d') : null;
 const stickerCache = new Map();
 const frameCache = new Map();
@@ -171,13 +174,71 @@ async function processQueue() {
 }
 window.addEventListener('online', processQueue);
 
+function getActiveVideoTrack() {
+    return stream?.getVideoTracks?.()?.[0];
+}
+
+function updateTorchButton() {
+    if (!torchBtn) return;
+    const hideTorch = !torchSupported || !stream;
+    torchBtn.classList.toggle('hidden', hideTorch);
+    torchBtn.disabled = hideTorch;
+    torchBtn.classList.toggle('active', torchEnabled);
+    torchBtn.setAttribute('aria-pressed', torchEnabled ? 'true' : 'false');
+    torchBtn.textContent = torchEnabled ? 'Blitz: An' : 'Blitz: Aus';
+}
+
+async function updateTorchSupport() {
+    const track = getActiveVideoTrack();
+    const capabilities = track?.getCapabilities?.();
+    torchSupported = Boolean(capabilities?.torch);
+    if (!torchSupported) {
+        torchEnabled = false;
+    }
+    updateTorchButton();
+}
+
+async function setTorch(enabled) {
+    const track = getActiveVideoTrack();
+    const capabilities = track?.getCapabilities?.();
+    if (!track || !capabilities?.torch) {
+        torchSupported = false;
+        torchEnabled = false;
+        updateTorchButton();
+        return;
+    }
+    try {
+        await track.applyConstraints({ advanced: [{ torch: enabled }] });
+        torchEnabled = enabled;
+    } catch (err) {
+        console.warn('Torch toggle failed', err);
+        torchEnabled = false;
+        showToast('Blitz nicht verfügbar.');
+    }
+    updateTorchButton();
+}
+
+async function disableTorch() {
+    if (!torchEnabled) {
+        torchEnabled = false;
+        updateTorchButton();
+        return;
+    }
+    await setTorch(false);
+}
+
+async function toggleTorch() {
+    if (!torchSupported || !stream) return;
+    await setTorch(!torchEnabled);
+}
+
 async function startCamera() {
     await loadVideoDevices();
     await startCameraWithConstraints();
 }
 
 async function startCameraWithConstraints(deviceId = null) {
-    stopCurrentStream();
+    await stopCurrentStream();
     const constraints = { video: {} };
     if (deviceId) {
         constraints.video.deviceId = { exact: deviceId };
@@ -194,15 +255,24 @@ async function startCameraWithConstraints(deviceId = null) {
             if (idx >= 0) currentDeviceIndex = idx;
         }
         updateSwitchAvailability();
+        torchEnabled = false;
+        await updateTorchSupport();
     } catch (e) {
         showToast('Kamera konnte nicht gestartet werden.');
+        torchSupported = false;
+        torchEnabled = false;
+        updateTorchButton();
     }
 }
 
-function stopCurrentStream() {
+async function stopCurrentStream() {
+    await disableTorch();
     if (!stream) return;
     stream.getTracks().forEach((track) => track.stop());
     stream = null;
+    torchSupported = false;
+    torchEnabled = false;
+    updateTorchButton();
 }
 
 async function loadVideoDevices() {
@@ -251,6 +321,7 @@ async function switchCamera() {
 function toggleViews(editMode) {
     if (!cameraView || !editorView) return;
     if (editMode) {
+        disableTorch();
         cameraView.classList.add('hidden');
         editorView.classList.remove('hidden');
         if (pageHeader) pageHeader.classList.add('hidden');
@@ -771,6 +842,7 @@ overlayCategoryTabs?.forEach((tab) => {
 startBtn?.addEventListener('click', startCamera);
 switchBtn?.addEventListener('click', switchCamera);
 takeBtn?.addEventListener('click', takePhoto);
+torchBtn?.addEventListener('click', toggleTorch);
 addTextBtn?.addEventListener('click', addTextOverlay);
 editTextBtn?.addEventListener('click', editSelectedText);
 stickerPalette?.addEventListener('click', (e) => {
@@ -858,6 +930,8 @@ rotateLeftBtn?.addEventListener('click', () => modifyRotation(-0.1));
 rotateRightBtn?.addEventListener('click', () => modifyRotation(0.1));
 editCancelBtn?.addEventListener('click', cancelEditing);
 editConfirmBtn?.addEventListener('click', finalizeEdit);
+window.addEventListener('beforeunload', disableTorch);
+window.addEventListener('pagehide', disableTorch);
 openCodeModalBtn?.addEventListener('click', () => toggleCodeModal(true));
 closeCodeModalBtn?.addEventListener('click', () => toggleCodeModal(false));
 codeModal?.addEventListener('click', (e) => {
