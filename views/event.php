@@ -55,6 +55,7 @@ if (is_dir($fontDir)) {
         </div>
         <div class="actions">
             <button id="start-camera" class="secondary">Kamera starten</button>
+            <button id="switch-camera" class="secondary" disabled>Kamera wechseln</button>
             <button id="take-photo" class="primary" disabled>Foto aufnehmen</button>
         </div>
     </div>
