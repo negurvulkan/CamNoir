@@ -1,4 +1,3 @@
-const consent = document.getElementById('consent');
 const startBtn = document.getElementById('start-camera');
 const switchBtn = document.getElementById('switch-camera');
 const takeBtn = document.getElementById('take-photo');
@@ -7,18 +6,29 @@ const captureCanvas = document.getElementById('camera-canvas');
 const toast = document.getElementById('toast');
 const uploadStatus = document.getElementById('upload-status');
 const uploadStatusText = document.getElementById('upload-status-text');
+const pageHeader = document.querySelector('.header');
 const cameraView = document.getElementById('camera-view');
 const editorView = document.getElementById('editor-view');
 const editorCanvas = document.getElementById('editor-canvas');
+const tabButtons = document.querySelectorAll('[data-tab-target]');
+const tabPanels = document.querySelectorAll('[data-tab-panel]');
+const transformPanel = document.getElementById('transform-panel');
 const addTextBtn = document.getElementById('add-text-btn');
+const editTextBtn = document.getElementById('edit-text-btn');
 const stickerPalette = document.getElementById('sticker-palette');
 const framePalette = document.getElementById('frame-palette');
 const colorFilterSelect = document.getElementById('color-filter-select');
 const overlayFilterPalette = document.getElementById('overlay-filter-palette');
+const overlayCategoryTabs = document.querySelectorAll('[data-overlay-category-tab]');
+const overlaySliders = document.querySelectorAll('[data-overlay-slider]');
 const overlayScopeInputs = document.querySelectorAll('input[name="overlay-scope"]');
 const overlayBlendSelect = document.getElementById('overlay-blend-select');
 const overlayOpacityInput = document.getElementById('overlay-opacity');
 const overlayOpacityValue = document.getElementById('overlay-opacity-value');
+const overlayScaleRange = document.getElementById('overlay-scale-range');
+const overlayRotationRange = document.getElementById('overlay-rotation-range');
+const overlayScaleValue = document.getElementById('overlay-scale-value');
+const overlayRotationValue = document.getElementById('overlay-rotation-value');
 const fontSelect = document.getElementById('font-select');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
 const editConfirmBtn = document.getElementById('edit-confirm-btn');
@@ -41,10 +51,19 @@ const colorFilters = (window.CAM_CONFIG?.colorFilters?.length ? window.CAM_CONFI
     },
     [{ id: 'none', name: 'Kein Filter', css: 'none' }]
 );
-const overlayFilters = [
-    { id: 'none', name: 'Kein Overlay', src: null },
-    ...(window.CAM_CONFIG?.overlayFilters || [])
-];
+const overlayCategories = (window.CAM_CONFIG?.overlayCategories?.length
+    ? window.CAM_CONFIG.overlayCategories
+    : [{ id: 'alle-overlays', name: 'Alle Overlays', overlays: window.CAM_CONFIG?.overlayFilters || [] }]);
+
+const overlayFilters = overlayCategories.reduce(
+    (list, category) => {
+        (category.overlays || []).forEach((overlay) => {
+            list.push({ ...overlay, category: category.id });
+        });
+        return list;
+    },
+    [{ id: 'none', name: 'Kein Overlay', src: null, category: overlayCategories[0]?.id || 'alle-overlays' }]
+);
 
 let stream = null;
 let videoDevices = [];
@@ -69,6 +88,11 @@ let overlayFilterImage = null;
 let overlayFilterBlendMode = overlayBlendSelect?.value || 'screen';
 let overlayFilterOpacity = overlayOpacityInput ? Number(overlayOpacityInput.value) / 100 : 0.8;
 
+function updateTakeButtonAvailability() {
+    if (!takeBtn) return;
+    takeBtn.disabled = remaining <= 0;
+}
+
 function showToast(message) {
     toast.textContent = message;
     toast.classList.remove('hidden');
@@ -79,10 +103,8 @@ function updateRemaining(count) {
     remaining = count;
     const el = document.getElementById('remaining-count');
     if (el) el.textContent = remaining;
-    if (remaining <= 0) {
-        if (takeBtn) takeBtn.disabled = true;
-        showToast('Limit erreicht.');
-    }
+    updateTakeButtonAvailability();
+    if (remaining <= 0) showToast('Limit erreicht.');
 }
 
 function saveQueue() {
@@ -157,6 +179,23 @@ function updateSwitchAvailability() {
     switchBtn.disabled = !stream && videoDevices.length <= 1;
 }
 
+function setActiveTab(target) {
+    if (!target) return;
+    tabButtons.forEach((btn) => {
+        const isActive = btn.getAttribute('data-tab-target') === target;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive);
+    });
+    tabPanels.forEach((panel) => {
+        const isActive = panel.getAttribute('data-tab-panel') === target;
+        panel.classList.toggle('hidden', !isActive);
+    });
+    if (transformPanel) {
+        const showTransform = target === 'stickers' || target === 'text';
+        transformPanel.classList.toggle('hidden', !showTransform);
+    }
+}
+
 async function switchCamera() {
     if (!videoDevices.length) {
         await loadVideoDevices();
@@ -176,9 +215,11 @@ function toggleViews(editMode) {
     if (editMode) {
         cameraView.classList.add('hidden');
         editorView.classList.remove('hidden');
+        if (pageHeader) pageHeader.classList.add('hidden');
     } else {
         cameraView.classList.remove('hidden');
         editorView.classList.add('hidden');
+        if (pageHeader) pageHeader.classList.remove('hidden');
     }
 }
 
@@ -192,6 +233,7 @@ function resetEditorState() {
     if (editorCtx && editorCanvas) {
         editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
     }
+    updateTransformControls();
 }
 
 function getOverlayBounds(overlay) {
@@ -214,19 +256,47 @@ function getActiveColorFilter() {
     return colorFilters.find((filter) => filter.id === selectedColorFilterId) || colorFilters[0];
 }
 
+function getActiveOverlayCategoryId() {
+    const activeSlider = Array.from(overlaySliders || []).find((slider) => !slider.classList.contains('hidden'));
+    return activeSlider?.getAttribute('data-overlay-slider') || overlayCategories[0]?.id;
+}
+
+function setActiveOverlayCategory(categoryId) {
+    const targetId = categoryId || overlayCategories[0]?.id;
+    if (!targetId) return;
+    Array.from(overlayCategoryTabs || []).forEach((tab) => {
+        const isActive = tab.getAttribute('data-overlay-category-tab') === targetId;
+        tab.classList.toggle('active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    Array.from(overlaySliders || []).forEach((slider) => {
+        const isActive = slider.getAttribute('data-overlay-slider') === targetId;
+        slider.classList.toggle('hidden', !isActive);
+        slider.classList.toggle('active', isActive);
+    });
+    updateOverlayFilterButtons();
+}
+
 function updateOverlayFilterButtons() {
     if (!overlayFilterPalette) return;
+    const activeCategoryId = getActiveOverlayCategoryId();
     overlayFilterPalette.querySelectorAll('[data-overlay-id]').forEach((btn) => {
         const isActive = btn.getAttribute('data-overlay-id') === selectedOverlayFilterId;
-        btn.classList.toggle('active', isActive);
+        const slider = btn.closest('[data-overlay-slider]');
+        const matchesCategory = !slider || slider.getAttribute('data-overlay-slider') === activeCategoryId;
+        btn.classList.toggle('active', isActive && matchesCategory);
     });
 }
 
 function setOverlayFilter(filterId) {
     selectedOverlayFilterId = filterId;
     overlayFilterImage = null;
-    updateOverlayFilterButtons();
     const filter = overlayFilters.find((item) => item.id === filterId);
+    if (filter?.category) {
+        setActiveOverlayCategory(filter.category);
+    } else {
+        updateOverlayFilterButtons();
+    }
     if (!filter || !filter.src) {
         renderEditor();
         return;
@@ -264,7 +334,28 @@ function setSelected(overlay) {
     if (selectedOverlay?.type === 'text' && fontSelect) {
         fontSelect.value = selectedOverlay.fontFamily || getSelectedFont();
     }
+    updateTransformControls();
     renderEditor();
+}
+
+function updateTransformControls() {
+    if (!overlayScaleRange || !overlayRotationRange || !overlayScaleValue || !overlayRotationValue) return;
+    const hasSelection = Boolean(selectedOverlay);
+    overlayScaleRange.disabled = !hasSelection;
+    overlayRotationRange.disabled = !hasSelection;
+    if (!hasSelection) {
+        overlayScaleRange.value = 100;
+        overlayRotationRange.value = 0;
+        overlayScaleValue.textContent = '100';
+        overlayRotationValue.textContent = '0';
+        return;
+    }
+    const scalePercent = Math.round((selectedOverlay.scale || 1) * 100);
+    const rotationDeg = Math.round((selectedOverlay.rotation || 0) * (180 / Math.PI));
+    overlayScaleRange.value = scalePercent;
+    overlayRotationRange.value = rotationDeg;
+    overlayScaleValue.textContent = scalePercent.toString();
+    overlayRotationValue.textContent = rotationDeg.toString();
 }
 
 function drawOverlay(overlay) {
@@ -338,6 +429,8 @@ function enterEditMode(image) {
     const scale = image.width > maxWidth ? maxWidth / image.width : 1;
     editorCanvas.width = Math.round(image.width * scale);
     editorCanvas.height = Math.round(image.height * scale);
+    setActiveTab('filter');
+    updateTransformControls();
     toggleViews(true);
     renderEditor();
 }
@@ -431,6 +524,18 @@ function addTextOverlay() {
     setSelected(overlay);
 }
 
+function editSelectedText() {
+    if (!selectedOverlay || selectedOverlay.type !== 'text') {
+        showToast('Bitte zuerst einen Text auswählen.');
+        return;
+    }
+    const newText = prompt('Text bearbeiten', selectedOverlay.text || '');
+    if (!newText || !newText.trim()) return;
+    selectedOverlay.text = newText.trim();
+    selectedOverlay.width = measureTextWidth(selectedOverlay.text, selectedOverlay.fontSize, selectedOverlay.fontFamily);
+    renderEditor();
+}
+
 function onPointerDown(e) {
     if (!editorCanvas) return;
     const rect = editorCanvas.getBoundingClientRect();
@@ -471,12 +576,14 @@ function onPointerUp() {
 function modifyScale(factor) {
     if (!selectedOverlay) return;
     selectedOverlay.scale = Math.min(4, Math.max(0.2, selectedOverlay.scale * factor));
+    updateTransformControls();
     renderEditor();
 }
 
 function modifyRotation(delta) {
     if (!selectedOverlay) return;
     selectedOverlay.rotation = (selectedOverlay.rotation || 0) + delta;
+    updateTransformControls();
     renderEditor();
 }
 
@@ -565,7 +672,7 @@ async function uploadBlob(blob, dataUrl) {
         }
         toggleViews(false);
         resetEditorState();
-        if (remaining > 0 && takeBtn) takeBtn.disabled = !consent?.checked;
+        updateTakeButtonAvailability();
         processQueue();
     }
 }
@@ -595,7 +702,7 @@ async function takePhoto() {
 function cancelEditing() {
     toggleViews(false);
     resetEditorState();
-    if (remaining > 0 && takeBtn) takeBtn.disabled = !consent?.checked;
+    updateTakeButtonAvailability();
 }
 
 function finalizeEdit() {
@@ -609,14 +716,25 @@ function finalizeEdit() {
     uploadBlob(blob, dataUrl);
 }
 
-consent?.addEventListener('change', () => {
-    if (takeBtn) takeBtn.disabled = !consent.checked || remaining <= 0;
+tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-tab-target');
+        setActiveTab(target);
+    });
+});
+
+overlayCategoryTabs?.forEach((tab) => {
+    tab.addEventListener('click', () => {
+        const categoryId = tab.getAttribute('data-overlay-category-tab');
+        setActiveOverlayCategory(categoryId);
+    });
 });
 
 startBtn?.addEventListener('click', startCamera);
 switchBtn?.addEventListener('click', switchCamera);
 takeBtn?.addEventListener('click', takePhoto);
 addTextBtn?.addEventListener('click', addTextOverlay);
+editTextBtn?.addEventListener('click', editSelectedText);
 stickerPalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-src]');
     if (!btn) return;
@@ -631,6 +749,8 @@ overlayFilterPalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-overlay-id]');
     if (!btn) return;
     const id = btn.getAttribute('data-overlay-id');
+    const categoryId = btn.getAttribute('data-overlay-category');
+    if (categoryId) setActiveOverlayCategory(categoryId);
     setOverlayFilter(id);
 });
 overlayScopeInputs?.forEach((input) => {
@@ -655,6 +775,22 @@ overlayOpacityInput?.addEventListener('input', () => {
         if (overlayOpacityValue) overlayOpacityValue.textContent = value.toString();
         renderEditor();
     }
+});
+overlayScaleRange?.addEventListener('input', () => {
+    if (!selectedOverlay) return;
+    const value = Number(overlayScaleRange.value);
+    if (Number.isNaN(value)) return;
+    selectedOverlay.scale = Math.min(4, Math.max(0.2, value / 100));
+    updateTransformControls();
+    renderEditor();
+});
+overlayRotationRange?.addEventListener('input', () => {
+    if (!selectedOverlay) return;
+    const value = Number(overlayRotationRange.value);
+    if (Number.isNaN(value)) return;
+    selectedOverlay.rotation = (value * Math.PI) / 180;
+    updateTransformControls();
+    renderEditor();
 });
 framePalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-src], [data-clear-frame]');
@@ -685,6 +821,9 @@ rotateRightBtn?.addEventListener('click', () => modifyRotation(0.1));
 editCancelBtn?.addEventListener('click', cancelEditing);
 editConfirmBtn?.addEventListener('click', finalizeEdit);
 
+if (overlaySliders && overlaySliders.length) {
+    setActiveOverlayCategory(getActiveOverlayCategoryId());
+}
 updateOverlayFilterButtons();
 if (overlayOpacityValue && overlayOpacityInput?.value) {
     overlayOpacityValue.textContent = overlayOpacityInput.value;
@@ -692,7 +831,9 @@ if (overlayOpacityValue && overlayOpacityInput?.value) {
 if (colorFilterSelect?.value) {
     selectedColorFilterId = colorFilterSelect.value;
 }
+setActiveTab('filter');
 setOverlayFilter(selectedOverlayFilterId);
 updateRemaining(remaining);
 processQueue();
 loadCustomFonts();
+updateTransformControls();

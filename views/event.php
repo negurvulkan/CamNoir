@@ -6,7 +6,7 @@ $frameDir = __DIR__ . '/../public/frames';
 $overlayDir = __DIR__ . '/../public/overlays';
 $stickers = [];
 $frames = [];
-$overlayFilters = [];
+$overlayCategories = [];
 $colorFilters = merge_color_filters($event['color_filters'] ?? null);
 $fonts = [
     ['name' => 'Arial', 'url' => null],
@@ -22,12 +22,54 @@ if (is_dir($frameDir)) {
     }
 }
 if (is_dir($overlayDir)) {
-    foreach (glob($overlayDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
-        $name = preg_replace('/[-_]+/', ' ', pathinfo($file, PATHINFO_FILENAME));
-        $overlayFilters[] = [
-            'id' => pathinfo($file, PATHINFO_FILENAME),
-            'name' => ucwords($name ?: 'Overlay'),
-            'src' => base_url('overlays/' . basename($file)),
+    $subFolders = array_filter(glob($overlayDir . '/*'), 'is_dir');
+    $rootOverlays = glob($overlayDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE);
+
+    $normalizeName = function (string $filename): string {
+        $name = preg_replace('/[-_]+/', ' ', pathinfo($filename, PATHINFO_FILENAME));
+        return ucwords($name ?: 'Overlay');
+    };
+
+    $buildOverlayList = function (string $dir, string $categoryId = '', string $categoryPath = '') use ($normalizeName): array {
+        $items = [];
+        foreach (glob($dir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
+            $fileName = pathinfo($file, PATHINFO_FILENAME);
+            $slug = trim(preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($fileName)), '-');
+            $items[] = [
+                'id' => ($categoryId ? $categoryId . '-' : '') . ($slug ?: $fileName),
+                'name' => $normalizeName($file),
+                'src' => base_url('overlays/' . ($categoryPath ? $categoryPath . '/' : '') . basename($file)),
+            ];
+        }
+        return $items;
+    };
+
+    if (!empty($subFolders)) {
+        foreach ($subFolders as $folder) {
+            $folderName = basename($folder);
+            $categorySlug = trim(preg_replace('/[^A-Za-z0-9]+/', '-', strtolower($folderName)), '-');
+            $overlays = $buildOverlayList($folder, $categorySlug ?: $folderName, $folderName);
+            if (!empty($overlays)) {
+                $overlayCategories[] = [
+                    'id' => $categorySlug ?: $folderName,
+                    'name' => ucwords(str_replace('-', ' ', $categorySlug ?: $folderName)),
+                    'overlays' => $overlays,
+                ];
+            }
+        }
+
+        if (!empty($rootOverlays)) {
+            array_unshift($overlayCategories, [
+                'id' => 'alle-overlays',
+                'name' => 'Alle Overlays',
+                'overlays' => $buildOverlayList($overlayDir, '', ''),
+            ]);
+        }
+    } elseif (!empty($rootOverlays)) {
+        $overlayCategories[] = [
+            'id' => 'alle-overlays',
+            'name' => 'Alle Overlays',
+            'overlays' => $buildOverlayList($overlayDir, '', ''),
         ];
     }
 }
@@ -60,10 +102,6 @@ $themeStyles = theme_style_block($theme);
 </div>
 
 <section class="card">
-    <label class="checkbox">
-        <input type="checkbox" id="consent" />
-        <span>Ich stimme der Verarbeitung meiner Fotos im Rahmen dieses Events zu.</span>
-    </label>
     <div id="camera-view">
         <div class="camera">
             <video id="camera-preview" playsinline autoplay muted class="preview"></video>
@@ -77,112 +115,190 @@ $themeStyles = theme_style_block($theme);
     </div>
 
     <div id="editor-view" class="hidden">
-        <div class="editor-layout">
-            <canvas id="editor-canvas"></canvas>
-            <div id="editor-tools">
-                <div class="tool-header">
-                    <p class="muted small">Farbfilter (Foto)</p>
-                    <p class="muted small">Wirken nur auf das Basisfoto vor Stickern, Text und Rahmen.</p>
+        <p class="muted small">Zuerst Filter wählen, dann Rahmen, Sticker oder Text platzieren.</p>
+        <div class="editor-layout tabbed-editor">
+            <div class="editor-canvas-shell">
+                <div class="tab-list tab-list-floating" role="tablist">
+                    <button class="tab-btn active" role="tab" aria-selected="true" data-tab-target="filter">Filter</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="frames">Rahmen</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="stickers">Sticker</button>
+                    <button class="tab-btn" role="tab" aria-selected="false" data-tab-target="text">Text</button>
                 </div>
-                <div class="tool-row">
-                    <select id="color-filter-select" class="font-select">
-                        <?php foreach ($colorFilters as $filter): ?>
-                            <option value="<?= sanitize_text($filter['id']) ?>"><?= sanitize_text($filter['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                <canvas id="editor-canvas"></canvas>
+            </div>
+            <div class="tab-shell">
+                <div class="tab-panels">
+                    <div class="tab-panel" data-tab-panel="filter">
+                        <div class="panel-grid">
+                            <div class="panel-card">
+                                <div class="tool-header">
+                                    <p class="muted small">Farbfilter (Foto)</p>
+                                    <p class="muted small">Wirken nur auf das Basisfoto vor Stickern, Text und Rahmen.</p>
+                                </div>
+                                <select id="color-filter-select" class="font-select">
+                                    <?php foreach ($colorFilters as $filter): ?>
+                                        <option value="<?= sanitize_text($filter['id']) ?>"><?= sanitize_text($filter['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="panel-card">
+                                <div class="tool-header">
+                                    <p class="muted small">Overlay-Filter (PNG-Texturen)</p>
+                                    <p class="muted small">Kann über dem Foto oder der ganzen Komposition liegen.</p>
+                                </div>
+                                <div class="tool-row overlay-scope-row">
+                                    <div class="tool-header">
+                                        <p class="muted small">Overlay-Filter Bereich</p>
+                                        <p class="muted small">Wirkt auf das Foto oder die gesamte Komposition.</p>
+                                    </div>
+                                    <div class="pill-group">
+                                        <label class="pill">
+                                            <input type="radio" name="overlay-scope" value="photo" checked />
+                                            <span>Nur Foto</span>
+                                        </label>
+                                        <label class="pill">
+                                            <input type="radio" name="overlay-scope" value="composition" />
+                                            <span>Gesamte Komposition</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <?php if (!empty($overlayCategories)): ?>
+                                    <div class="overlay-browser">
+                                        <div class="overlay-tabs" role="tablist">
+                                            <?php foreach ($overlayCategories as $index => $category): ?>
+                                                <button type="button"
+                                                    class="overlay-tab <?= $index === 0 ? 'active' : '' ?>"
+                                                    role="tab"
+                                                    aria-selected="<?= $index === 0 ? 'true' : 'false' ?>"
+                                                    data-overlay-category-tab="<?= sanitize_text($category['id']) ?>">
+                                                    <?= sanitize_text($category['name']) ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <div id="overlay-filter-palette" class="overlay-slider-shell">
+                                            <?php foreach ($overlayCategories as $index => $category): ?>
+                                                <div class="overlay-slider <?= $index === 0 ? 'active' : 'hidden' ?>" data-overlay-slider="<?= sanitize_text($category['id']) ?>">
+                                                    <button type="button" class="overlay-thumb overlay-btn" data-overlay-id="none" data-src="" data-overlay-category="<?= sanitize_text($category['id']) ?>">
+                                                        <span class="overlay-thumb-label">Kein Overlay</span>
+                                                    </button>
+                                                    <?php foreach ($category['overlays'] as $overlay): ?>
+                                                        <button type="button" class="overlay-thumb overlay-btn" data-overlay-id="<?= sanitize_text($overlay['id']) ?>" data-src="<?= sanitize_text($overlay['src']) ?>" data-overlay-category="<?= sanitize_text($category['id']) ?>">
+                                                            <img src="<?= sanitize_text($overlay['src']) ?>" alt="<?= sanitize_text($overlay['name']) ?>" />
+                                                            <span class="overlay-thumb-label"><?= sanitize_text($overlay['name']) ?></span>
+                                                        </button>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="muted small">PNG-Texturen in <code>public/overlays</code> ablegen, um sie hier auszuwählen.</p>
+                                <?php endif; ?>
+                                <div class="tool-row overlay-scope-row">
+                                    <label class="field compact">
+                                        <span class="muted small">Blend Mode</span>
+                                        <select id="overlay-blend-select" class="font-select">
+                                            <option value="screen">Screen</option>
+                                            <option value="multiply">Multiply</option>
+                                            <option value="overlay">Overlay</option>
+                                            <option value="lighten">Lighten</option>
+                                            <option value="darken">Darken</option>
+                                        </select>
+                                    </label>
+                                    <label class="field compact">
+                                        <span class="muted small">Transparenz</span>
+                                        <input id="overlay-opacity" type="range" min="0" max="100" value="80" />
+                                        <span class="muted small"><span id="overlay-opacity-value">80</span>%</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-panel hidden" data-tab-panel="frames">
+                        <div class="tool-header">
+                            <p class="muted small">Rahmen hinzufügen</p>
+                            <p class="muted small">Wähle einen Rahmen, der über dem Foto liegt. "Kein Rahmen" ist immer verfügbar.</p>
+                        </div>
+                        <div id="frame-palette" class="sticker-palette frame-palette">
+                            <button type="button" class="sticker-btn frame-btn no-frame" data-clear-frame="true">Kein Rahmen</button>
+                            <?php if (!empty($frames)): ?>
+                                <?php foreach ($frames as $frame): ?>
+                                    <button type="button" class="sticker-btn frame-btn" data-src="<?= sanitize_text($frame) ?>">
+                                        <img src="<?= sanitize_text($frame) ?>" alt="Rahmen" />
+                                    </button>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <p class="muted small">Noch keine Rahmen hochgeladen.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="tab-panel hidden" data-tab-panel="stickers">
+                        <div class="tool-header">
+                            <p class="muted small">Sticker hinzufügen</p>
+                            <p class="muted small">Sticker durch Ziehen positionieren, Drehung und Größe über die Regler.</p>
+                        </div>
+                        <div id="sticker-palette" class="sticker-palette">
+                            <?php if (!empty($stickers)): ?>
+                                <?php foreach ($stickers as $sticker): ?>
+                                    <button type="button" class="sticker-btn" data-src="<?= sanitize_text($sticker) ?>">
+                                        <img src="<?= sanitize_text($sticker) ?>" alt="Sticker" />
+                                    </button>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <p class="muted small">Noch keine Sticker hochgeladen.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="tab-panel hidden" data-tab-panel="text">
+                        <div class="tool-header">
+                            <p class="muted small">Text hinzufügen &amp; bearbeiten</p>
+                            <p class="muted small">Schrift wählen, Text platzieren und danach Größe, Rotation &amp; Position anpassen.</p>
+                        </div>
+                        <div class="panel-grid">
+                            <div class="panel-card">
+                                <p class="muted small">Schriftart</p>
+                                <p class="muted small">.ttf-Dateien können in <code>public/fonts</code> abgelegt werden.</p>
+                                <select id="font-select" class="font-select">
+                                    <?php foreach ($fonts as $font): ?>
+                                        <option value="<?= sanitize_text($font['name']) ?>"><?= sanitize_text($font['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="panel-card actions-row">
+                                <button id="add-text-btn" class="secondary" type="button">Text hinzufügen</button>
+                                <button id="edit-text-btn" class="secondary" type="button">Text bearbeiten</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="tool-header">
-                    <p class="muted small">Overlay-Filter (PNG-Texturen)</p>
-                    <p class="muted small">Wahlweise nur über dem Foto oder über der gesamten Komposition.</p>
-                </div>
-                <div id="overlay-filter-palette" class="sticker-palette overlay-palette">
-                    <button type="button" class="sticker-btn overlay-btn" data-overlay-id="none">Kein Overlay</button>
-                    <?php if (!empty($overlayFilters)): ?>
-                        <?php foreach ($overlayFilters as $overlay): ?>
-                            <button type="button" class="sticker-btn overlay-btn" data-overlay-id="<?= sanitize_text($overlay['id']) ?>" data-src="<?= sanitize_text($overlay['src']) ?>">
-                                <img src="<?= sanitize_text($overlay['src']) ?>" alt="<?= sanitize_text($overlay['name']) ?>" />
-                            </button>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <p class="muted small">PNG-Texturen in <code>public/overlays</code> ablegen, um sie hier auszuwählen.</p>
-                    <?php endif; ?>
-                </div>
-                <div class="tool-row overlay-scope-row">
-                    <label class="radio">
-                        <input type="radio" name="overlay-scope" value="photo" checked />
-                        <span>Nur Foto</span>
-                    </label>
-                    <label class="radio">
-                        <input type="radio" name="overlay-scope" value="composition" />
-                        <span>Gesamte Komposition</span>
-                    </label>
-                </div>
-                <div class="tool-row">
-                    <label>
-                        <span class="muted small">Blend Mode</span><br />
-                        <select id="overlay-blend-select" class="font-select">
-                            <option value="screen">Screen</option>
-                            <option value="multiply">Multiply</option>
-                            <option value="overlay">Overlay</option>
-                            <option value="lighten">Lighten</option>
-                            <option value="darken">Darken</option>
-                        </select>
-                    </label>
-                    <label>
-                        <span class="muted small">Transparenz</span><br />
-                        <input id="overlay-opacity" type="range" min="0" max="100" value="80" />
-                        <span class="muted small"><span id="overlay-opacity-value">80</span>%</span>
-                    </label>
-                </div>
-                <div class="tool-header">
-                    <p class="muted small">Rahmen hinzufügen</p>
-                    <p class="muted small">Wähle einen Rahmen, der über dem Foto liegt.</p>
-                </div>
-                <div id="frame-palette" class="sticker-palette frame-palette">
-                    <button type="button" class="sticker-btn frame-btn no-frame" data-clear-frame="true">Kein Rahmen</button>
-                    <?php if (!empty($frames)): ?>
-                        <?php foreach ($frames as $frame): ?>
-                            <button type="button" class="sticker-btn frame-btn" data-src="<?= sanitize_text($frame) ?>">
-                                <img src="<?= sanitize_text($frame) ?>" alt="Rahmen" />
-                            </button>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <p class="muted small">Noch keine Rahmen hochgeladen.</p>
-                    <?php endif; ?>
-                </div>
-                <div class="tool-header">
-                    <p class="muted small">Sticker hinzufügen</p>
-                    <p class="muted small">Tipp: Ziehe Sticker/Text, um sie zu verschieben.</p>
-                </div>
-                <div id="sticker-palette" class="sticker-palette">
-                    <?php if (!empty($stickers)): ?>
-                        <?php foreach ($stickers as $sticker): ?>
-                            <button type="button" class="sticker-btn" data-src="<?= sanitize_text($sticker) ?>">
-                                <img src="<?= sanitize_text($sticker) ?>" alt="Sticker" />
-                            </button>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <p class="muted small">Noch keine Sticker hochgeladen.</p>
-                    <?php endif; ?>
-                </div>
-                <div class="tool-header">
-                    <p class="muted small">Schriftart wählen</p>
-                    <p class="muted small">.ttf-Dateien können in <code>public/fonts</code> abgelegt werden.</p>
-                </div>
-                <div class="tool-row">
-                    <select id="font-select" class="font-select">
-                        <?php foreach ($fonts as $font): ?>
-                            <option value="<?= sanitize_text($font['name']) ?>"><?= sanitize_text($font['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="tool-row">
-                    <button id="add-text-btn" class="secondary" type="button">Text hinzufügen</button>
-                    <div class="transform-buttons">
-                        <button id="overlay-scale-down" type="button" class="secondary" title="Kleiner">➖</button>
-                        <button id="overlay-scale-up" type="button" class="secondary" title="Größer">➕</button>
-                        <button id="overlay-rotate-left" type="button" class="secondary" title="Links drehen">⟲</button>
-                        <button id="overlay-rotate-right" type="button" class="secondary" title="Rechts drehen">⟳</button>
+                <div id="transform-panel" class="transform-panel hidden">
+                    <div class="tool-header">
+                        <p class="muted small">Größe / Rotation / Position</p>
+                        <p class="muted small">Gilt für den aktuell ausgewählten Sticker oder Text (Tip: aufs Canvas tippen, um zu markieren).</p>
+                    </div>
+                    <div class="panel-grid compact-grid">
+                        <div class="panel-card">
+                            <label class="field compact">
+                                <span class="muted small">Größe</span>
+                                <input id="overlay-scale-range" type="range" min="20" max="400" value="100" />
+                                <span class="muted small"><span id="overlay-scale-value">100</span>%</span>
+                            </label>
+                            <label class="field compact">
+                                <span class="muted small">Rotation</span>
+                                <input id="overlay-rotation-range" type="range" min="-180" max="180" value="0" />
+                                <span class="muted small"><span id="overlay-rotation-value">0</span>°</span>
+                            </label>
+                        </div>
+                        <div class="panel-card">
+                            <p class="muted small">Feinjustierung</p>
+                            <div class="transform-buttons">
+                                <button id="overlay-scale-down" type="button" class="secondary" title="Kleiner">➖</button>
+                                <button id="overlay-scale-up" type="button" class="secondary" title="Größer">➕</button>
+                                <button id="overlay-rotate-left" type="button" class="secondary" title="Links drehen">⟲</button>
+                                <button id="overlay-rotate-right" type="button" class="secondary" title="Rechts drehen">⟳</button>
+                            </div>
+                            <p class="muted small">Position per Drag &amp; Drop direkt im Canvas.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -209,7 +325,7 @@ $themeStyles = theme_style_block($theme);
         remaining: <?= $remaining ?>,
         fonts: <?= json_encode($fonts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
         colorFilters: <?= json_encode($colorFilters, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
-        overlayFilters: <?= json_encode($overlayFilters, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+        overlayCategories: <?= json_encode($overlayCategories, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
     };
 </script>
 <script src="<?= base_url('js/app.js') ?>"></script>
