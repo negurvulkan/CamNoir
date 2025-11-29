@@ -25,9 +25,14 @@
     </form>
     <div class="grid photos">
     <?php foreach ($photos as $photo): ?>
-        <label class="photo" style="display:block;">
-            <input type="checkbox" name="photo_ids[]" value="<?= (int)$photo['id'] ?>" form="export-form">
-            <img src="<?= base_url(str_replace(__DIR__ . '/../', '', $photo['file_path'])) ?>" alt="Foto">
+        <div class="photo">
+            <div style="display:flex; gap:8px; align-items:flex-start;">
+                <?php $photoInputId = 'photo-' . (int)$photo['id']; ?>
+                <input type="checkbox" id="<?= $photoInputId ?>" name="photo_ids[]" value="<?= (int)$photo['id'] ?>" form="export-form">
+                <label for="<?= $photoInputId ?>" style="flex:1 1 auto; display:block;">
+                    <img src="<?= base_url(str_replace(__DIR__ . '/../', '', $photo['file_path'])) ?>" alt="Foto">
+                </label>
+            </div>
             <p class="muted small">Session: <code><?= sanitize_text($photo['session_id']) ?></code></p>
             <p class="muted small">Löschcode: <code><?= sanitize_text($photo['delete_code']) ?></code></p>
                 <?php
@@ -86,7 +91,7 @@
                     </form>
                 <?php endif; ?>
             </div>
-        </label>
+        </div>
     <?php endforeach; ?>
     </div>
 </section>
