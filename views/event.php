@@ -7,13 +7,7 @@ $overlayDir = __DIR__ . '/../public/overlays';
 $stickers = [];
 $frames = [];
 $overlayFilters = [];
-$colorFilters = [
-    ['id' => 'none', 'name' => 'Kein Filter', 'css' => 'none'],
-    ['id' => 'noir-classic', 'name' => 'Noir Classic', 'css' => 'grayscale(1) contrast(1.12) brightness(0.96)'],
-    ['id' => 'noir-punch', 'name' => 'Noir Punch', 'css' => 'grayscale(0.85) contrast(1.24) brightness(0.94) saturate(0.9)'],
-    ['id' => 'noir-soft', 'name' => 'Noir Soft', 'css' => 'grayscale(1) contrast(1.05) brightness(1.02) saturate(0.8)'],
-    ['id' => 'noir-warm', 'name' => 'Warm Noir', 'css' => 'grayscale(0.8) sepia(0.12) contrast(1.1) brightness(0.98)'],
-];
+$colorFilters = merge_color_filters($event['color_filters'] ?? null);
 $fonts = [
     ['name' => 'Arial', 'url' => null],
 ];

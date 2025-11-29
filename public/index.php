@@ -305,6 +305,8 @@ if ($uri === '/admin/events') {
                 $theme[$key] = sanitize_theme_value($themeInput[$key], $value);
             }
         }
+        $colorFilters = parse_color_filters_input($_POST['color_filters'] ?? '');
+        $colorFiltersJson = $colorFilters ? json_encode($colorFilters, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null;
         $data = [
             'slug' => preg_replace('/[^a-z0-9-]/', '', strtolower($_POST['slug'] ?? '')),
             'name' => trim($_POST['name'] ?? ''),
@@ -314,6 +316,7 @@ if ($uri === '/admin/events') {
             'frame_branding_text' => trim($_POST['frame_branding_text'] ?? ''),
             'auto_approve_photos' => isset($_POST['auto_approve_photos']) ? 1 : 0,
             'theme_settings' => json_encode($theme, JSON_UNESCAPED_SLASHES),
+            'color_filters' => $colorFiltersJson,
             'banner_url' => trim($_POST['banner_url'] ?? ''),
         ];
         if (!empty($_POST['id'])) {
