@@ -64,9 +64,6 @@ if ($uri === '/api/events' && $_SERVER['REQUEST_METHOD'] === 'GET') {
             'name' => $event['name'],
             'slug' => $event['slug'],
             'description' => $event['description'],
-            'theme_primary_color' => $event['theme_primary_color'],
-            'theme_background_pattern' => $event['theme_background_pattern'],
-            'theme_logo_url' => $event['theme_logo_url'],
             'frame_branding_text' => $event['frame_branding_text'],
             'created_at' => $event['created_at'],
         ];
@@ -185,7 +182,7 @@ if (preg_match('#^/e/([a-zA-Z0-9-]+)/upload$#', $uri, $matches) && $_SERVER['REQ
     $frameHeight = $newHeight + $margin;
     $framed = imagecreatetruecolor($newWidth, $frameHeight);
     $bg = imagecolorallocate($framed, 5, 5, 9);
-    [$r, $g, $b] = sscanf($event['theme_primary_color'] ?: '#c8a2ff', '#%02x%02x%02x');
+    [$r, $g, $b] = sscanf('#c8a2ff', '#%02x%02x%02x');
     $fg = imagecolorallocate($framed, $r, $g, $b);
     imagefilledrectangle($framed, 0, 0, $newWidth, $frameHeight, $bg);
     imagecopy($framed, $dst, 0, 0, 0, 0, $newWidth, $newHeight);
@@ -287,9 +284,6 @@ if ($uri === '/admin/events') {
             'description' => trim($_POST['description'] ?? ''),
             'max_photos_per_session' => (int)($_POST['max_photos_per_session'] ?? 10),
             'auto_delete_days' => (int)($_POST['auto_delete_days'] ?? 30),
-            'theme_primary_color' => trim($_POST['theme_primary_color'] ?? '#e0e0e0'),
-            'theme_background_pattern' => trim($_POST['theme_background_pattern'] ?? ''),
-            'theme_logo_url' => trim($_POST['theme_logo_url'] ?? ''),
             'frame_branding_text' => trim($_POST['frame_branding_text'] ?? ''),
         ];
         if (!empty($_POST['id'])) {

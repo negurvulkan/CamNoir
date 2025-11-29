@@ -22,15 +22,6 @@
         <label class="field">Auto-Delete (Tage)
             <input type="number" name="auto_delete_days" min="1" max="365" value="30">
         </label>
-        <label class="field">Primärfarbe
-            <input type="text" name="theme_primary_color" value="#e0e0e0">
-        </label>
-        <label class="field">Hintergrund/Muster (CSS oder Base64)
-            <textarea name="theme_background_pattern" rows="2" placeholder="linear-gradient(...)"></textarea>
-        </label>
-        <label class="field">Logo-URL
-            <input type="text" name="theme_logo_url" placeholder="https://...">
-        </label>
         <label class="field">Frame Branding Text
             <input type="text" name="frame_branding_text" placeholder="Night Zero 2026">
         </label>
@@ -71,9 +62,6 @@ function fillEvent(event) {
     document.querySelector('textarea[name="description"]').value = event.description || '';
     document.querySelector('input[name="max_photos_per_session"]').value = event.max_photos_per_session;
     document.querySelector('input[name="auto_delete_days"]').value = event.auto_delete_days;
-    document.querySelector('input[name="theme_primary_color"]').value = event.theme_primary_color || '#e0e0e0';
-    document.querySelector('textarea[name="theme_background_pattern"]').value = event.theme_background_pattern || '';
-    document.querySelector('input[name="theme_logo_url"]').value = event.theme_logo_url || '';
     document.querySelector('input[name="frame_branding_text"]').value = event.frame_branding_text || '';
     window.scrollTo({top: 0, behavior: 'smooth'});
 }

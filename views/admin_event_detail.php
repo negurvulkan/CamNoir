@@ -8,10 +8,6 @@
         <p class="muted small">Name</p>
         <h3><?= sanitize_text($event['name']) ?></h3>
         <p class="muted">Slug: <code><?= sanitize_text($event['slug']) ?></code></p>
-        <p class="muted">Primärfarbe: <span style="color: <?= sanitize_text($event['theme_primary_color']) ?>; font-weight:700;">
-            <?= sanitize_text($event['theme_primary_color']) ?></span></p>
-        <p class="muted">Background/Muster: <code><?= $event['theme_background_pattern'] ? 'gesetzt' : 'nicht gesetzt' ?></code></p>
-        <p class="muted">Logo: <?= $event['theme_logo_url'] ? '<code>' . sanitize_text($event['theme_logo_url']) . '</code>' : '–' ?></p>
         <p class="muted">Frame-Branding: <?= $event['frame_branding_text'] ? sanitize_text($event['frame_branding_text']) : '–' ?></p>
     </div>
     <div>
