@@ -153,8 +153,8 @@ $themeStyles = theme_style_block($theme);
             <button id="start-camera" class="secondary">Kamera starten</button>
             <button id="switch-camera" class="secondary" disabled>Kamera wechseln</button>
             <button id="toggle-torch" class="secondary hidden" type="button" disabled>Blitz: Aus</button>
+            <button id="take-photo" class="primary" disabled>Foto aufnehmen</button><br/><br/>
             <button id="upload-photo" class="secondary" type="button">Foto hochladen</button>
-            <button id="take-photo" class="primary" disabled>Foto aufnehmen</button>
             <input id="upload-input" type="file" accept="image/*" class="hidden" />
         </div>
     </div>
