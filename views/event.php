@@ -3,8 +3,17 @@ ob_start();
 $remaining = (int)$event['max_photos_per_session'] - (int)$session['photo_count'];
 $stickerDir = __DIR__ . '/../public/stickers';
 $frameDir = __DIR__ . '/../public/frames';
+$overlayDir = __DIR__ . '/../public/overlays';
 $stickers = [];
 $frames = [];
+$overlayFilters = [];
+$colorFilters = [
+    ['id' => 'none', 'name' => 'Kein Filter', 'css' => 'none'],
+    ['id' => 'noir-classic', 'name' => 'Noir Classic', 'css' => 'grayscale(1) contrast(1.12) brightness(0.96)'],
+    ['id' => 'noir-punch', 'name' => 'Noir Punch', 'css' => 'grayscale(0.85) contrast(1.24) brightness(0.94) saturate(0.9)'],
+    ['id' => 'noir-soft', 'name' => 'Noir Soft', 'css' => 'grayscale(1) contrast(1.05) brightness(1.02) saturate(0.8)'],
+    ['id' => 'noir-warm', 'name' => 'Warm Noir', 'css' => 'grayscale(0.8) sepia(0.12) contrast(1.1) brightness(0.98)'],
+];
 $fonts = [
     ['name' => 'Arial', 'url' => null],
 ];
@@ -16,6 +25,16 @@ if (is_dir($stickerDir)) {
 if (is_dir($frameDir)) {
     foreach (glob($frameDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
         $frames[] = base_url('frames/' . basename($file));
+    }
+}
+if (is_dir($overlayDir)) {
+    foreach (glob($overlayDir . '/*.{png,jpg,jpeg,svg,webp}', GLOB_BRACE) as $file) {
+        $name = preg_replace('/[-_]+/', ' ', pathinfo($file, PATHINFO_FILENAME));
+        $overlayFilters[] = [
+            'id' => pathinfo($file, PATHINFO_FILENAME),
+            'name' => ucwords($name ?: 'Overlay'),
+            'src' => base_url('overlays/' . basename($file)),
+        ];
     }
 }
 $fontDir = __DIR__ . '/../public/fonts';
@@ -67,6 +86,43 @@ $themeStyles = theme_style_block($theme);
         <div class="editor-layout">
             <canvas id="editor-canvas"></canvas>
             <div id="editor-tools">
+                <div class="tool-header">
+                    <p class="muted small">Farbfilter (Foto)</p>
+                    <p class="muted small">Wirken nur auf das Basisfoto vor Stickern, Text und Rahmen.</p>
+                </div>
+                <div class="tool-row">
+                    <select id="color-filter-select" class="font-select">
+                        <?php foreach ($colorFilters as $filter): ?>
+                            <option value="<?= sanitize_text($filter['id']) ?>"><?= sanitize_text($filter['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="tool-header">
+                    <p class="muted small">Overlay-Filter (PNG-Texturen)</p>
+                    <p class="muted small">Wahlweise nur über dem Foto oder über der gesamten Komposition.</p>
+                </div>
+                <div id="overlay-filter-palette" class="sticker-palette overlay-palette">
+                    <button type="button" class="sticker-btn overlay-btn" data-overlay-id="none">Kein Overlay</button>
+                    <?php if (!empty($overlayFilters)): ?>
+                        <?php foreach ($overlayFilters as $overlay): ?>
+                            <button type="button" class="sticker-btn overlay-btn" data-overlay-id="<?= sanitize_text($overlay['id']) ?>" data-src="<?= sanitize_text($overlay['src']) ?>">
+                                <img src="<?= sanitize_text($overlay['src']) ?>" alt="<?= sanitize_text($overlay['name']) ?>" />
+                            </button>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="muted small">PNG-Texturen in <code>public/overlays</code> ablegen, um sie hier auszuwählen.</p>
+                    <?php endif; ?>
+                </div>
+                <div class="tool-row overlay-scope-row">
+                    <label class="radio">
+                        <input type="radio" name="overlay-scope" value="photo" checked />
+                        <span>Nur Foto</span>
+                    </label>
+                    <label class="radio">
+                        <input type="radio" name="overlay-scope" value="composition" />
+                        <span>Gesamte Komposition</span>
+                    </label>
+                </div>
                 <div class="tool-header">
                     <p class="muted small">Rahmen hinzufügen</p>
                     <p class="muted small">Wähle einen Rahmen, der über dem Foto liegt.</p>
@@ -140,7 +196,9 @@ $themeStyles = theme_style_block($theme);
         uploadUrl: "<?= base_url('e/' . sanitize_text($event['slug']) . '/upload') ?>",
         sessionToken: "<?= sanitize_text($session['session_token']) ?>",
         remaining: <?= $remaining ?>,
-        fonts: <?= json_encode($fonts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+        fonts: <?= json_encode($fonts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+        colorFilters: <?= json_encode($colorFilters, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+        overlayFilters: <?= json_encode($overlayFilters, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
     };
 </script>
 <script src="<?= base_url('js/app.js') ?>"></script>

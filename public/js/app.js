@@ -13,6 +13,9 @@ const editorCanvas = document.getElementById('editor-canvas');
 const addTextBtn = document.getElementById('add-text-btn');
 const stickerPalette = document.getElementById('sticker-palette');
 const framePalette = document.getElementById('frame-palette');
+const colorFilterSelect = document.getElementById('color-filter-select');
+const overlayFilterPalette = document.getElementById('overlay-filter-palette');
+const overlayScopeInputs = document.querySelectorAll('input[name="overlay-scope"]');
 const fontSelect = document.getElementById('font-select');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
 const editConfirmBtn = document.getElementById('edit-confirm-btn');
@@ -21,6 +24,24 @@ const scaleDownBtn = document.getElementById('overlay-scale-down');
 const rotateLeftBtn = document.getElementById('overlay-rotate-left');
 const rotateRightBtn = document.getElementById('overlay-rotate-right');
 const availableFonts = window.CAM_CONFIG?.fonts || [{ name: 'Arial', url: null }];
+const defaultColorFilters = [
+    { id: 'none', name: 'Kein Filter', css: 'none' },
+    { id: 'noir-classic', name: 'Noir Classic', css: 'grayscale(1) contrast(1.12) brightness(0.96)' },
+    { id: 'noir-punch', name: 'Noir Punch', css: 'grayscale(0.85) contrast(1.24) brightness(0.94) saturate(0.9)' },
+    { id: 'noir-soft', name: 'Noir Soft', css: 'grayscale(1) contrast(1.05) brightness(1.02) saturate(0.8)' },
+    { id: 'noir-warm', name: 'Warm Noir', css: 'grayscale(0.8) sepia(0.12) contrast(1.1) brightness(0.98)' }
+];
+const colorFilters = (window.CAM_CONFIG?.colorFilters?.length ? window.CAM_CONFIG.colorFilters : defaultColorFilters).reduce(
+    (list, filter) => {
+        if (!list.find((item) => item.id === filter.id)) list.push(filter);
+        return list;
+    },
+    [{ id: 'none', name: 'Kein Filter', css: 'none' }]
+);
+const overlayFilters = [
+    { id: 'none', name: 'Kein Overlay', src: null },
+    ...(window.CAM_CONFIG?.overlayFilters || [])
+];
 
 let stream = null;
 let videoDevices = [];
@@ -36,7 +57,12 @@ let backgroundImage = null;
 const editorCtx = editorCanvas ? editorCanvas.getContext('2d') : null;
 const stickerCache = new Map();
 const frameCache = new Map();
+const overlayFilterCache = new Map();
 let frameOverlay = null;
+let selectedColorFilterId = colorFilters[0]?.id || 'none';
+let selectedOverlayFilterId = overlayFilters[0]?.id || 'none';
+let overlayFilterScope = 'photo';
+let overlayFilterImage = null;
 
 function showToast(message) {
     toast.textContent = message;
@@ -179,6 +205,51 @@ function overlayHitTest(x, y) {
     return null;
 }
 
+function getActiveColorFilter() {
+    return colorFilters.find((filter) => filter.id === selectedColorFilterId) || colorFilters[0];
+}
+
+function updateOverlayFilterButtons() {
+    if (!overlayFilterPalette) return;
+    overlayFilterPalette.querySelectorAll('[data-overlay-id]').forEach((btn) => {
+        const isActive = btn.getAttribute('data-overlay-id') === selectedOverlayFilterId;
+        btn.classList.toggle('active', isActive);
+    });
+}
+
+function setOverlayFilter(filterId) {
+    selectedOverlayFilterId = filterId;
+    overlayFilterImage = null;
+    updateOverlayFilterButtons();
+    const filter = overlayFilters.find((item) => item.id === filterId);
+    if (!filter || !filter.src) {
+        renderEditor();
+        return;
+    }
+    if (overlayFilterCache.has(filter.src)) {
+        overlayFilterImage = overlayFilterCache.get(filter.src);
+        renderEditor();
+        return;
+    }
+    const img = new Image();
+    img.onload = () => {
+        overlayFilterCache.set(filter.src, img);
+        overlayFilterImage = img;
+        renderEditor();
+    };
+    img.crossOrigin = 'anonymous';
+    img.src = filter.src;
+}
+
+function drawFilterTexture(scope) {
+    if (!editorCtx || !editorCanvas) return;
+    if (overlayFilterScope !== scope) return;
+    if (!overlayFilterImage) return;
+    editorCtx.save();
+    editorCtx.drawImage(overlayFilterImage, 0, 0, editorCanvas.width, editorCanvas.height);
+    editorCtx.restore();
+}
+
 function setSelected(overlay) {
     overlays.forEach((o) => { o.selected = false; });
     if (overlay) overlay.selected = true;
@@ -232,7 +303,14 @@ function drawFrame(frame) {
 function renderEditor(showSelection = true) {
     if (!editorCtx || !editorCanvas || !backgroundImage) return;
     editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+    editorCtx.save();
+    const activeColorFilter = getActiveColorFilter();
+    if (activeColorFilter?.css && activeColorFilter.css !== 'none') {
+        editorCtx.filter = activeColorFilter.css;
+    }
     editorCtx.drawImage(backgroundImage, 0, 0, editorCanvas.width, editorCanvas.height);
+    editorCtx.restore();
+    drawFilterTexture('photo');
     overlays.forEach((overlay) => {
         if (!showSelection) overlay.selected = false;
         drawOverlay(overlay);
@@ -240,6 +318,7 @@ function renderEditor(showSelection = true) {
     if (frameOverlay?.image) {
         drawFrame(frameOverlay);
     }
+    drawFilterTexture('composition');
 }
 
 function enterEditMode(image) {
@@ -537,6 +616,27 @@ stickerPalette?.addEventListener('click', (e) => {
     const src = btn.getAttribute('data-src');
     addStickerOverlay(src);
 });
+colorFilterSelect?.addEventListener('change', () => {
+    selectedColorFilterId = colorFilterSelect.value;
+    renderEditor();
+});
+overlayFilterPalette?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-overlay-id]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-overlay-id');
+    setOverlayFilter(id);
+});
+overlayScopeInputs?.forEach((input) => {
+    if (input.checked) {
+        overlayFilterScope = input.value;
+    }
+    input.addEventListener('change', () => {
+        if (input.checked) {
+            overlayFilterScope = input.value;
+            renderEditor();
+        }
+    });
+});
 framePalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-src], [data-clear-frame]');
     if (!btn) return;
@@ -566,6 +666,11 @@ rotateRightBtn?.addEventListener('click', () => modifyRotation(0.1));
 editCancelBtn?.addEventListener('click', cancelEditing);
 editConfirmBtn?.addEventListener('click', finalizeEdit);
 
+updateOverlayFilterButtons();
+if (colorFilterSelect?.value) {
+    selectedColorFilterId = colorFilterSelect.value;
+}
+setOverlayFilter(selectedOverlayFilterId);
 updateRemaining(remaining);
 processQueue();
 loadCustomFonts();

@@ -81,10 +81,14 @@ table th, table td { padding: 8px; border-bottom: 1px solid var(--border); }
 .sticker-palette { display: flex; gap: 10px; overflow-x: auto; padding: 4px 0; }
 .sticker-btn { width: 72px; height: 72px; border-radius: 12px; border: 1px solid var(--border); background: var(--button-secondary-bg); padding: 8px; display: grid; place-items: center; cursor: pointer; }
 .sticker-btn img { width: 100%; height: 100%; object-fit: contain; }
+.overlay-palette { align-items: center; }
+.overlay-btn.active { outline: 2px solid var(--primary); outline-offset: 2px; }
 .frame-palette { padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
 .frame-btn { background: rgba(200,162,255,0.1); }
 .frame-btn.no-frame { color: var(--text); font-weight: 700; }
 .tool-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; }
+.overlay-scope-row { justify-content: flex-start; gap: 16px; }
+.radio { display: inline-flex; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; }
 .font-select { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--button-secondary-bg); color: var(--text); min-width: 200px; }
 .font-select:focus { outline: 2px solid var(--primary); }
 .transform-buttons { display: flex; gap: 8px; }
