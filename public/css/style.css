@@ -75,6 +75,8 @@ table th, table td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.0
 .frame-btn { background: rgba(200,162,255,0.1); }
 .frame-btn.no-frame { color: var(--text); font-weight: 700; }
 .tool-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; }
+.font-select { padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: var(--text); min-width: 200px; }
+.font-select:focus { outline: 2px solid var(--primary); }
 .transform-buttons { display: flex; gap: 8px; }
 .transform-buttons button { width: 44px; height: 44px; padding: 0; font-size: 18px; }
 #editor-actions { justify-content: space-between; }
