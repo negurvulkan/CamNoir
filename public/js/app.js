@@ -321,6 +321,7 @@ async function switchCamera() {
 function toggleViews(editMode) {
     if (!cameraView || !editorView) return;
     if (editMode) {
+        disableTorch();
         cameraView.classList.add('hidden');
         editorView.classList.remove('hidden');
         if (pageHeader) pageHeader.classList.add('hidden');
