@@ -1,4 +1,7 @@
-<?php ob_start(); ?>
+<?php ob_start();
+$theme = merge_theme_settings($event['theme_settings'] ?? null);
+$themeStyles = theme_style_block($theme);
+?>
 <div class="flex-between header">
     <div>
         <p class="eyebrow">NRW Noir Disposable Cam</p>
@@ -7,6 +10,10 @@
     </div>
     <a class="secondary button-link" href="<?= base_url('e/' . sanitize_text($event['slug'])) ?>">Zur Kamera</a>
 </div>
+
+<?php if (!empty($event['banner_url'])): ?>
+    <img src="<?= sanitize_text($event['banner_url']) ?>" alt="Event Banner" class="event-banner">
+<?php endif; ?>
 
 <section class="card">
     <p class="muted small">Du kannst Fotos auch mit einem Löschcode über <a href="<?= base_url('delete-photo') ?>">diese Seite</a> entfernen. Für hochgeladene Sessions bleibt der Aufruf der Kamera über denselben QR-Code bestehen.</p>

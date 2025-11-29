@@ -7,6 +7,8 @@ CREATE TABLE events (
     auto_delete_days INT DEFAULT 30,
     frame_branding_text VARCHAR(255) NULL,
     auto_approve_photos TINYINT(1) DEFAULT 0,
+    theme_settings TEXT NULL,
+    banner_url VARCHAR(255) NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -278,6 +278,13 @@ if ($uri === '/admin/logout') {
 if ($uri === '/admin/events') {
     require_auth();
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $themeInput = $_POST['theme'] ?? [];
+        $theme = default_theme_settings();
+        foreach ($theme as $key => $value) {
+            if (isset($themeInput[$key]) && is_string($themeInput[$key])) {
+                $theme[$key] = sanitize_theme_value($themeInput[$key], $value);
+            }
+        }
         $data = [
             'slug' => preg_replace('/[^a-z0-9-]/', '', strtolower($_POST['slug'] ?? '')),
             'name' => trim($_POST['name'] ?? ''),
@@ -286,6 +293,8 @@ if ($uri === '/admin/events') {
             'auto_delete_days' => (int)($_POST['auto_delete_days'] ?? 30),
             'frame_branding_text' => trim($_POST['frame_branding_text'] ?? ''),
             'auto_approve_photos' => isset($_POST['auto_approve_photos']) ? 1 : 0,
+            'theme_settings' => json_encode($theme, JSON_UNESCAPED_SLASHES),
+            'banner_url' => trim($_POST['banner_url'] ?? ''),
         ];
         if (!empty($_POST['id'])) {
             $eventRepo->update((int)$_POST['id'], $data);
