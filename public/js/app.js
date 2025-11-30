@@ -1479,7 +1479,7 @@ textShadowBlurInput?.addEventListener('input', () => {
     if (textShadowBlurValue) textShadowBlurValue.textContent = Math.round(value).toString();
     updateSelectedTextOverlay((overlay) => {
         overlay.shadowBlur = value;
-        overlay.shadowEnabled = textShadowToggle?.checked ?? overlay.shadowEnabled || value > 0;
+        overlay.shadowEnabled = (textShadowToggle?.checked ?? overlay.shadowEnabled) || value > 0;
     });
     updateTextControls();
 });
@@ -1488,7 +1488,7 @@ textShadowOffsetXInput?.addEventListener('input', () => {
     if (textShadowOffsetXValue) textShadowOffsetXValue.textContent = Math.round(value).toString();
     updateSelectedTextOverlay((overlay) => {
         overlay.shadowOffsetX = value;
-        overlay.shadowEnabled = textShadowToggle?.checked ?? overlay.shadowEnabled || value !== 0;
+        overlay.shadowEnabled = (textShadowToggle?.checked ?? overlay.shadowEnabled) || value !== 0;
     });
     updateTextControls();
 });
@@ -1497,7 +1497,7 @@ textShadowOffsetYInput?.addEventListener('input', () => {
     if (textShadowOffsetYValue) textShadowOffsetYValue.textContent = Math.round(value).toString();
     updateSelectedTextOverlay((overlay) => {
         overlay.shadowOffsetY = value;
-        overlay.shadowEnabled = textShadowToggle?.checked ?? overlay.shadowEnabled || value !== 0;
+        overlay.shadowEnabled = (textShadowToggle?.checked ?? overlay.shadowEnabled) || value !== 0;
     });
     updateTextControls();
 });
