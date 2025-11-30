@@ -344,6 +344,68 @@ $themeStyles = theme_style_block($theme);
                                 <button id="add-text-btn" class="secondary" type="button">Text hinzufügen</button>
                                 <button id="edit-text-btn" class="secondary" type="button">Text bearbeiten</button>
                             </div>
+                            <div class="panel-card">
+                                <p class="muted small">Textstil</p>
+                                <label class="field compact">Textfarbe
+                                    <input id="text-color-input" type="color" value="#ffffff" />
+                                </label>
+                                <label class="field compact">Transparenz
+                                    <input id="text-opacity-range" type="range" min="0" max="100" value="100" />
+                                    <span class="muted small"><span id="text-opacity-value">100</span>%</span>
+                                </label>
+                            </div>
+                            <div class="panel-card">
+                                <p class="muted small">Outline / Rand</p>
+                                <label class="checkbox">
+                                    <input id="text-outline-toggle" type="checkbox" checked />
+                                    <span>Outline aktivieren</span>
+                                </label>
+                                <label class="field compact">Outline-Farbe
+                                    <input id="text-outline-color" type="color" value="#000000" />
+                                </label>
+                                <label class="field compact">Stärke
+                                    <input id="text-outline-width" type="range" min="0" max="10" value="3" />
+                                    <span class="muted small"><span id="text-outline-width-value">3</span> px</span>
+                                </label>
+                            </div>
+                            <div class="panel-card">
+                                <p class="muted small">Schatten</p>
+                                <label class="checkbox">
+                                    <input id="text-shadow-toggle" type="checkbox" />
+                                    <span>Schatten aktivieren</span>
+                                </label>
+                                <label class="field compact">Farbe
+                                    <input id="text-shadow-color" type="color" value="#000000" />
+                                </label>
+                                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;">
+                                    <label class="field compact">Blur
+                                        <input id="text-shadow-blur" type="range" min="0" max="24" value="0" />
+                                        <span class="muted small"><span id="text-shadow-blur-value">0</span> px</span>
+                                    </label>
+                                    <label class="field compact">Versatz X
+                                        <input id="text-shadow-offset-x" type="range" min="-30" max="30" value="0" />
+                                        <span class="muted small"><span id="text-shadow-offset-x-value">0</span> px</span>
+                                    </label>
+                                    <label class="field compact">Versatz Y
+                                        <input id="text-shadow-offset-y" type="range" min="-30" max="30" value="0" />
+                                        <span class="muted small"><span id="text-shadow-offset-y-value">0</span> px</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="panel-card">
+                                <p class="muted small">Hintergrund</p>
+                                <label class="checkbox">
+                                    <input id="text-background-toggle" type="checkbox" />
+                                    <span>Box hinter dem Text</span>
+                                </label>
+                                <label class="field compact">Farbe
+                                    <input id="text-background-color" type="color" value="#000000" />
+                                </label>
+                                <label class="field compact">Transparenz
+                                    <input id="text-background-opacity" type="range" min="0" max="100" value="0" />
+                                    <span class="muted small"><span id="text-background-opacity-value">0</span>%</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
