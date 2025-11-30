@@ -98,6 +98,8 @@ let activePointerId = null;
 let interactionMode = null;
 let resizeStartDistance = 0;
 let resizeStartScale = 1;
+let rotateStartAngle = 0;
+let rotateStartRotation = 0;
 let backgroundImage = null;
 let torchEnabled = false;
 let torchSupported = false;
@@ -498,7 +500,8 @@ function getOverlayHandles(overlay) {
     const radius = HANDLE_SIZE / 2;
     return [
         { type: 'delete', x: bounds.x + bounds.w + radius / 2, y: bounds.y + radius / 2, size: HANDLE_SIZE },
-        { type: 'resize', x: bounds.x + bounds.w + radius / 2, y: bounds.y + bounds.h + radius / 2, size: HANDLE_SIZE }
+        { type: 'resize', x: bounds.x + bounds.w + radius / 2, y: bounds.y + bounds.h + radius / 2, size: HANDLE_SIZE },
+        { type: 'rotate', x: bounds.x + bounds.w / 2, y: bounds.y - radius, size: HANDLE_SIZE }
     ];
 }
 
@@ -647,21 +650,24 @@ function drawHandle(handle) {
     editorCtx.stroke();
     editorCtx.strokeStyle = '#fff';
     editorCtx.lineWidth = 2.2;
+    editorCtx.beginPath();
     if (handle.type === 'delete') {
-        editorCtx.beginPath();
         editorCtx.moveTo(handle.x - 6, handle.y - 6);
         editorCtx.lineTo(handle.x + 6, handle.y + 6);
         editorCtx.moveTo(handle.x + 6, handle.y - 6);
         editorCtx.lineTo(handle.x - 6, handle.y + 6);
-        editorCtx.stroke();
+    } else if (handle.type === 'rotate') {
+        editorCtx.arc(handle.x, handle.y, radius - 8, -Math.PI * 0.7, Math.PI * 0.6);
+        editorCtx.moveTo(handle.x + (radius - 10), handle.y + 1);
+        editorCtx.lineTo(handle.x + (radius - 3), handle.y + 4);
+        editorCtx.lineTo(handle.x + (radius - 2), handle.y - 4);
     } else {
-        editorCtx.beginPath();
         editorCtx.moveTo(handle.x - 5, handle.y + 5);
         editorCtx.lineTo(handle.x + 6, handle.y - 6);
         editorCtx.moveTo(handle.x - 1, handle.y + 5);
         editorCtx.lineTo(handle.x + 6, handle.y - 2);
-        editorCtx.stroke();
     }
+    editorCtx.stroke();
     editorCtx.restore();
 }
 
@@ -860,6 +866,8 @@ function resetPointerState() {
     activePointerId = null;
     resizeStartDistance = 0;
     resizeStartScale = 1;
+    rotateStartAngle = 0;
+    rotateStartRotation = 0;
     dragStart = { x: 0, y: 0 };
 }
 
@@ -877,11 +885,17 @@ function onPointerDown(e) {
             resetPointerState(e);
             return;
         }
-        interactionMode = 'resize';
         draggingOverlay = selectedOverlay;
         dragStart = { x, y };
-        resizeStartDistance = Math.max(12, Math.hypot(x - selectedOverlay.x, y - selectedOverlay.y));
-        resizeStartScale = selectedOverlay.scale || 1;
+        if (handleHit.type === 'resize') {
+            interactionMode = 'resize';
+            resizeStartDistance = Math.max(12, Math.hypot(x - selectedOverlay.x, y - selectedOverlay.y));
+            resizeStartScale = selectedOverlay.scale || 1;
+        } else if (handleHit.type === 'rotate') {
+            interactionMode = 'rotate';
+            rotateStartAngle = Math.atan2(y - selectedOverlay.y, x - selectedOverlay.x);
+            rotateStartRotation = selectedOverlay.rotation || 0;
+        }
         e.preventDefault();
         return;
     }
@@ -911,6 +925,10 @@ function onPointerMove(e) {
         const distance = Math.max(12, Math.hypot(x - draggingOverlay.x, y - draggingOverlay.y));
         const factor = distance / resizeStartDistance;
         draggingOverlay.scale = clamp(resizeStartScale * factor, MIN_OVERLAY_SCALE, MAX_OVERLAY_SCALE);
+        updateTransformControls();
+    } else if (interactionMode === 'rotate') {
+        const angle = Math.atan2(y - draggingOverlay.y, x - draggingOverlay.x);
+        draggingOverlay.rotation = rotateStartRotation + (angle - rotateStartAngle);
         updateTransformControls();
     }
     renderEditor();
