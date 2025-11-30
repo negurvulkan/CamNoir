@@ -43,6 +43,25 @@ const adjustmentResetBtn = document.getElementById('adjustment-reset-btn');
 const fontSelect = document.getElementById('font-select');
 const editCancelBtn = document.getElementById('edit-cancel-btn');
 const editConfirmBtn = document.getElementById('edit-confirm-btn');
+const textColorInput = document.getElementById('text-color-input');
+const textOpacityRange = document.getElementById('text-opacity-range');
+const textOpacityValue = document.getElementById('text-opacity-value');
+const textOutlineToggle = document.getElementById('text-outline-toggle');
+const textOutlineColorInput = document.getElementById('text-outline-color');
+const textOutlineWidthInput = document.getElementById('text-outline-width');
+const textOutlineWidthValue = document.getElementById('text-outline-width-value');
+const textShadowToggle = document.getElementById('text-shadow-toggle');
+const textShadowColorInput = document.getElementById('text-shadow-color');
+const textShadowBlurInput = document.getElementById('text-shadow-blur');
+const textShadowBlurValue = document.getElementById('text-shadow-blur-value');
+const textShadowOffsetXInput = document.getElementById('text-shadow-offset-x');
+const textShadowOffsetYInput = document.getElementById('text-shadow-offset-y');
+const textShadowOffsetXValue = document.getElementById('text-shadow-offset-x-value');
+const textShadowOffsetYValue = document.getElementById('text-shadow-offset-y-value');
+const textBackgroundToggle = document.getElementById('text-background-toggle');
+const textBackgroundColorInput = document.getElementById('text-background-color');
+const textBackgroundOpacityInput = document.getElementById('text-background-opacity');
+const textBackgroundOpacityValue = document.getElementById('text-background-opacity-value');
 const scaleUpBtn = document.getElementById('overlay-scale-up');
 const scaleDownBtn = document.getElementById('overlay-scale-down');
 const rotateLeftBtn = document.getElementById('overlay-rotate-left');
@@ -129,9 +148,45 @@ const HANDLE_SIZE = 32;
 const HANDLE_HIT_EXPANSION = 12;
 const MIN_OVERLAY_SCALE = 0.2;
 const MAX_OVERLAY_SCALE = 4;
+const DEFAULT_TEXT_BACKGROUND_PADDING = 8;
 
 function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
+}
+
+function applyTextDefaults(overlay) {
+    if (!overlay || overlay.type !== 'text') return overlay;
+    overlay.color = overlay.color || '#ffffff';
+    overlay.opacity = overlay.opacity ?? 1;
+    overlay.outlineColor = overlay.outlineColor || '#000000';
+    overlay.outlineWidth = overlay.outlineWidth ?? 3;
+    overlay.shadowEnabled = overlay.shadowEnabled ?? false;
+    overlay.shadowColor = overlay.shadowColor || '#000000';
+    overlay.shadowBlur = overlay.shadowBlur ?? 0;
+    overlay.shadowOffsetX = overlay.shadowOffsetX ?? 0;
+    overlay.shadowOffsetY = overlay.shadowOffsetY ?? 0;
+    overlay.backgroundColor = overlay.backgroundColor || '#000000';
+    overlay.backgroundOpacity = overlay.backgroundOpacity ?? 0;
+    overlay.backgroundPadding = overlay.backgroundPadding ?? DEFAULT_TEXT_BACKGROUND_PADDING;
+    return overlay;
+}
+
+function getTextDimensions(overlay) {
+    const withDefaults = applyTextDefaults({ ...overlay });
+    const fontSize = withDefaults.fontSize || 32;
+    const fontFamily = withDefaults.fontFamily || getSelectedFont();
+    const textWidth = withDefaults.width || measureTextWidth(withDefaults.text || '', fontSize, fontFamily);
+    const baseHeight = withDefaults.height || fontSize;
+    const padding = withDefaults.backgroundPadding ?? DEFAULT_TEXT_BACKGROUND_PADDING;
+    const outline = Math.max(0, withDefaults.outlineWidth || 0);
+    return {
+        width: textWidth + 2 * (padding + outline),
+        height: baseHeight + 2 * (padding + outline),
+        padding,
+        outline,
+        textWidth,
+        baseHeight
+    };
 }
 
 function updateTakeButtonAvailability() {
@@ -455,6 +510,7 @@ function resetEditorState() {
         editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
     }
     updateTransformControls();
+    updateTextControls();
 }
 
 function updateAdjustmentUI() {
@@ -496,6 +552,12 @@ function resetImageAdjustments(triggerRender = true) {
 }
 
 function getOverlayBounds(overlay) {
+    if (overlay.type === 'text') {
+        const dims = getTextDimensions(overlay);
+        const w = dims.width * (overlay.scale || 1);
+        const h = dims.height * (overlay.scale || 1);
+        return { x: overlay.x - w / 2, y: overlay.y - h / 2, w, h };
+    }
     const w = (overlay.width || 0) * (overlay.scale || 1);
     const h = (overlay.height || 0) * (overlay.scale || 1);
     return { x: overlay.x - w / 2, y: overlay.y - h / 2, w, h };
@@ -618,12 +680,16 @@ function drawFilterTexture(scope) {
 
 function setSelected(overlay) {
     overlays.forEach((o) => { o.selected = false; });
-    if (overlay) overlay.selected = true;
+    if (overlay) {
+        applyTextDefaults(overlay);
+        overlay.selected = true;
+    }
     selectedOverlay = overlay;
     if (selectedOverlay?.type === 'text' && fontSelect) {
         fontSelect.value = selectedOverlay.fontFamily || getSelectedFont();
     }
     updateTransformControls();
+    updateTextControls();
     renderEditor();
 }
 
@@ -646,6 +712,68 @@ function updateTransformControls() {
     overlayRotationRange.value = rotationDeg;
     overlayScaleValue.textContent = scalePercent.toString();
     overlayRotationValue.textContent = rotationDeg.toString();
+}
+
+function updateTextControls() {
+    const isText = selectedOverlay?.type === 'text';
+    const controls = [
+        textColorInput,
+        textOpacityRange,
+        textOutlineToggle,
+        textOutlineColorInput,
+        textOutlineWidthInput,
+        textShadowToggle,
+        textShadowColorInput,
+        textShadowBlurInput,
+        textShadowOffsetXInput,
+        textShadowOffsetYInput,
+        textBackgroundToggle,
+        textBackgroundColorInput,
+        textBackgroundOpacityInput
+    ];
+    controls.forEach((control) => {
+        if (control) control.disabled = !isText;
+    });
+    if (!isText) return;
+
+    const overlay = applyTextDefaults(selectedOverlay);
+    if (textColorInput) textColorInput.value = overlay.color || '#ffffff';
+    if (textOpacityRange) {
+        const opacityPercent = Math.round((overlay.opacity ?? 1) * 100);
+        textOpacityRange.value = opacityPercent;
+        if (textOpacityValue) textOpacityValue.textContent = opacityPercent.toString();
+    }
+    if (textOutlineToggle) textOutlineToggle.checked = (overlay.outlineWidth || 0) > 0;
+    if (textOutlineColorInput) textOutlineColorInput.value = overlay.outlineColor || '#000000';
+    if (textOutlineWidthInput) {
+        const outline = Math.max(0, Math.round(overlay.outlineWidth || 0));
+        textOutlineWidthInput.value = outline;
+        if (textOutlineWidthValue) textOutlineWidthValue.textContent = outline.toString();
+    }
+    if (textShadowToggle) textShadowToggle.checked = Boolean(overlay.shadowEnabled);
+    if (textShadowColorInput) textShadowColorInput.value = overlay.shadowColor || '#000000';
+    if (textShadowBlurInput) {
+        const blur = Math.max(0, Math.round(overlay.shadowBlur || 0));
+        textShadowBlurInput.value = blur;
+        if (textShadowBlurValue) textShadowBlurValue.textContent = blur.toString();
+    }
+    if (textShadowOffsetXInput) {
+        const offsetX = Math.round(overlay.shadowOffsetX || 0);
+        textShadowOffsetXInput.value = offsetX;
+        if (textShadowOffsetXValue) textShadowOffsetXValue.textContent = offsetX.toString();
+    }
+    if (textShadowOffsetYInput) {
+        const offsetY = Math.round(overlay.shadowOffsetY || 0);
+        textShadowOffsetYInput.value = offsetY;
+        if (textShadowOffsetYValue) textShadowOffsetYValue.textContent = offsetY.toString();
+    }
+    if (textBackgroundToggle) textBackgroundToggle.checked = (overlay.backgroundOpacity || 0) > 0;
+    if (textBackgroundColorInput) textBackgroundColorInput.value = overlay.backgroundColor || '#000000';
+    if (textBackgroundOpacityInput) {
+        const bgOpacity = Math.round((overlay.backgroundOpacity || 0) * 100);
+        textBackgroundOpacityInput.value = bgOpacity;
+        if (textBackgroundOpacityValue) textBackgroundOpacityValue.textContent = bgOpacity.toString();
+    }
 }
 
 function deleteOverlay(target = selectedOverlay) {
@@ -697,16 +825,49 @@ function drawOverlay(overlay) {
     if (overlay.type === 'sticker' && overlay.image) {
         editorCtx.drawImage(overlay.image, -(overlay.width / 2), -(overlay.height / 2), overlay.width, overlay.height);
     } else if (overlay.type === 'text') {
-        const fontSize = overlay.fontSize || 32;
-        const fontFamily = overlay.fontFamily || getSelectedFont();
+        const withDefaults = applyTextDefaults({ ...overlay });
+        const fontSize = withDefaults.fontSize || 32;
+        const fontFamily = withDefaults.fontFamily || getSelectedFont();
+        const dims = getTextDimensions({ ...withDefaults, fontSize, fontFamily });
+        const backgroundOpacity = withDefaults.backgroundOpacity ?? 0;
         editorCtx.font = `bold ${fontSize}px "${fontFamily}"`;
         editorCtx.textAlign = 'center';
         editorCtx.textBaseline = 'middle';
-        editorCtx.fillStyle = 'white';
-        editorCtx.strokeStyle = 'black';
-        editorCtx.lineWidth = 3;
-        editorCtx.strokeText(overlay.text, 0, 0);
+
+        if (backgroundOpacity > 0) {
+            editorCtx.save();
+            editorCtx.globalAlpha = backgroundOpacity;
+            editorCtx.fillStyle = withDefaults.backgroundColor;
+            editorCtx.fillRect(-(dims.width / 2), -(dims.height / 2), dims.width, dims.height);
+            editorCtx.restore();
+        }
+
+        if (withDefaults.shadowEnabled) {
+            editorCtx.shadowColor = withDefaults.shadowColor;
+            editorCtx.shadowBlur = withDefaults.shadowBlur || 0;
+            editorCtx.shadowOffsetX = withDefaults.shadowOffsetX || 0;
+            editorCtx.shadowOffsetY = withDefaults.shadowOffsetY || 0;
+        } else {
+            editorCtx.shadowColor = 'transparent';
+            editorCtx.shadowBlur = 0;
+            editorCtx.shadowOffsetX = 0;
+            editorCtx.shadowOffsetY = 0;
+        }
+
+        if ((withDefaults.outlineWidth || 0) > 0) {
+            editorCtx.save();
+            editorCtx.lineWidth = withDefaults.outlineWidth;
+            editorCtx.strokeStyle = withDefaults.outlineColor;
+            editorCtx.globalAlpha = withDefaults.opacity ?? 1;
+            editorCtx.strokeText(overlay.text, 0, 0);
+            editorCtx.restore();
+        }
+
+        editorCtx.save();
+        editorCtx.fillStyle = withDefaults.color;
+        editorCtx.globalAlpha = withDefaults.opacity ?? 1;
         editorCtx.fillText(overlay.text, 0, 0);
+        editorCtx.restore();
     }
     editorCtx.restore();
 
@@ -852,7 +1013,19 @@ function addTextOverlay() {
         height: fontSize,
         fontSize,
         fontFamily,
-        selected: false
+        selected: false,
+        color: '#ffffff',
+        opacity: 1,
+        outlineColor: '#000000',
+        outlineWidth: 3,
+        shadowEnabled: false,
+        shadowColor: '#000000',
+        shadowBlur: 0,
+        shadowOffsetX: 0,
+        shadowOffsetY: 0,
+        backgroundColor: '#000000',
+        backgroundOpacity: 0,
+        backgroundPadding: DEFAULT_TEXT_BACKGROUND_PADDING
     };
     overlays.push(overlay);
     setSelected(overlay);
@@ -968,6 +1141,13 @@ function modifyRotation(delta) {
     if (!selectedOverlay) return;
     selectedOverlay.rotation = (selectedOverlay.rotation || 0) + delta;
     updateTransformControls();
+    renderEditor();
+}
+
+function updateSelectedTextOverlay(updater) {
+    if (!selectedOverlay || selectedOverlay.type !== 'text') return;
+    updater(selectedOverlay);
+    applyTextDefaults(selectedOverlay);
     renderEditor();
 }
 
@@ -1250,6 +1430,100 @@ fontSelect?.addEventListener('change', () => {
         selectedOverlay.width = measureTextWidth(selectedOverlay.text, selectedOverlay.fontSize, fontFamily);
         renderEditor();
     }
+});
+textColorInput?.addEventListener('input', () => {
+    updateSelectedTextOverlay((overlay) => {
+        overlay.color = textColorInput.value || '#ffffff';
+    });
+});
+textOpacityRange?.addEventListener('input', () => {
+    const value = clamp(Number(textOpacityRange.value) / 100, 0, 1);
+    if (textOpacityValue) textOpacityValue.textContent = Math.round(value * 100).toString();
+    updateSelectedTextOverlay((overlay) => {
+        overlay.opacity = value;
+    });
+});
+textOutlineToggle?.addEventListener('change', () => {
+    updateSelectedTextOverlay((overlay) => {
+        overlay.outlineWidth = textOutlineToggle.checked ? Math.max(1, overlay.outlineWidth || 3) : 0;
+    });
+    updateTextControls();
+});
+textOutlineColorInput?.addEventListener('input', () => {
+    updateSelectedTextOverlay((overlay) => {
+        overlay.outlineColor = textOutlineColorInput.value || '#000000';
+    });
+});
+textOutlineWidthInput?.addEventListener('input', () => {
+    const value = Math.max(0, Number(textOutlineWidthInput.value));
+    if (textOutlineWidthValue) textOutlineWidthValue.textContent = Math.round(value).toString();
+    updateSelectedTextOverlay((overlay) => {
+        overlay.outlineWidth = value;
+        if (textOutlineToggle) textOutlineToggle.checked = value > 0;
+    });
+});
+textShadowToggle?.addEventListener('change', () => {
+    updateSelectedTextOverlay((overlay) => {
+        overlay.shadowEnabled = textShadowToggle.checked;
+    });
+});
+textShadowColorInput?.addEventListener('input', () => {
+    updateSelectedTextOverlay((overlay) => {
+        overlay.shadowColor = textShadowColorInput.value || '#000000';
+        overlay.shadowEnabled = overlay.shadowEnabled || Boolean(overlay.shadowBlur || overlay.shadowOffsetX || overlay.shadowOffsetY);
+    });
+    updateTextControls();
+});
+textShadowBlurInput?.addEventListener('input', () => {
+    const value = Math.max(0, Number(textShadowBlurInput.value));
+    if (textShadowBlurValue) textShadowBlurValue.textContent = Math.round(value).toString();
+    updateSelectedTextOverlay((overlay) => {
+        overlay.shadowBlur = value;
+        overlay.shadowEnabled = textShadowToggle?.checked ?? overlay.shadowEnabled || value > 0;
+    });
+    updateTextControls();
+});
+textShadowOffsetXInput?.addEventListener('input', () => {
+    const value = Number(textShadowOffsetXInput.value);
+    if (textShadowOffsetXValue) textShadowOffsetXValue.textContent = Math.round(value).toString();
+    updateSelectedTextOverlay((overlay) => {
+        overlay.shadowOffsetX = value;
+        overlay.shadowEnabled = textShadowToggle?.checked ?? overlay.shadowEnabled || value !== 0;
+    });
+    updateTextControls();
+});
+textShadowOffsetYInput?.addEventListener('input', () => {
+    const value = Number(textShadowOffsetYInput.value);
+    if (textShadowOffsetYValue) textShadowOffsetYValue.textContent = Math.round(value).toString();
+    updateSelectedTextOverlay((overlay) => {
+        overlay.shadowOffsetY = value;
+        overlay.shadowEnabled = textShadowToggle?.checked ?? overlay.shadowEnabled || value !== 0;
+    });
+    updateTextControls();
+});
+textBackgroundToggle?.addEventListener('change', () => {
+    updateSelectedTextOverlay((overlay) => {
+        if (textBackgroundToggle.checked && (overlay.backgroundOpacity || 0) === 0) {
+            overlay.backgroundOpacity = 0.5;
+        }
+        if (!textBackgroundToggle.checked) {
+            overlay.backgroundOpacity = 0;
+        }
+    });
+    updateTextControls();
+});
+textBackgroundColorInput?.addEventListener('input', () => {
+    updateSelectedTextOverlay((overlay) => {
+        overlay.backgroundColor = textBackgroundColorInput.value || '#000000';
+    });
+});
+textBackgroundOpacityInput?.addEventListener('input', () => {
+    const value = clamp(Number(textBackgroundOpacityInput.value) / 100, 0, 1);
+    if (textBackgroundOpacityValue) textBackgroundOpacityValue.textContent = Math.round(value * 100).toString();
+    updateSelectedTextOverlay((overlay) => {
+        overlay.backgroundOpacity = value;
+        if (textBackgroundToggle) textBackgroundToggle.checked = value > 0;
+    });
 });
 editorCanvas?.addEventListener('pointerdown', onPointerDown);
 window.addEventListener('pointermove', onPointerMove);
