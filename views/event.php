@@ -348,11 +348,17 @@ $themeStyles = theme_style_block($theme);
                     </div>
                 </div>
                 <div id="transform-panel" class="transform-panel hidden">
-                    <div class="tool-header">
-                        <p class="muted small">Größe / Rotation / Position</p>
-                        <p class="muted small">Gilt für den aktuell ausgewählten Sticker oder Text (Tip: aufs Canvas tippen, um zu markieren).</p>
+                    <div class="tool-header collapsible">
+                        <div class="tool-header-text">
+                            <p class="muted small">Größe / Rotation / Position</p>
+                            <p class="muted small">Gilt für den aktuell ausgewählten Sticker oder Text (Tip: aufs Canvas tippen, um zu markieren).</p>
+                        </div>
+                        <button id="transform-toggle-btn" class="collapse-btn" type="button" aria-expanded="true" aria-controls="transform-content">
+                            <span id="transform-toggle-label">Feinkontrollen ausblenden</span>
+                            <span class="chevron" aria-hidden="true">▾</span>
+                        </button>
                     </div>
-                    <div class="panel-grid compact-grid">
+                    <div id="transform-content" class="panel-grid compact-grid">
                         <div class="panel-card">
                             <label class="field compact">
                                 <span class="muted small">Größe</span>
