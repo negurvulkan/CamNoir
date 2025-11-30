@@ -16,6 +16,9 @@ const uploadInput = document.getElementById('upload-input');
 const tabButtons = document.querySelectorAll('[data-tab-target]');
 const tabPanels = document.querySelectorAll('[data-tab-panel]');
 const transformPanel = document.getElementById('transform-panel');
+const transformToggleBtn = document.getElementById('transform-toggle-btn');
+const transformContent = document.getElementById('transform-content');
+const transformToggleLabel = document.getElementById('transform-toggle-label');
 const addTextBtn = document.getElementById('add-text-btn');
 const editTextBtn = document.getElementById('edit-text-btn');
 const stickerPalette = document.getElementById('sticker-palette');
@@ -115,6 +118,7 @@ let overlayFilterScope = 'photo';
 let overlayFilterImage = null;
 let overlayFilterBlendMode = overlayBlendSelect?.value || 'screen';
 let overlayFilterOpacity = overlayOpacityInput ? Number(overlayOpacityInput.value) / 100 : 0.8;
+let transformCollapsed = false;
 const adjustmentDefaults = { brightness: 0, contrast: 0 };
 let imageAdjustments = { ...adjustmentDefaults };
 const adjustedBaseCanvas = document.createElement('canvas');
@@ -395,6 +399,19 @@ function setActiveTab(target) {
     if (transformPanel) {
         const showTransform = target === 'stickers' || target === 'text';
         transformPanel.classList.toggle('hidden', !showTransform);
+        if (showTransform) {
+            setTransformCollapsed(transformCollapsed);
+        }
+    }
+}
+
+function setTransformCollapsed(collapsed) {
+    transformCollapsed = collapsed;
+    transformPanel?.classList.toggle('collapsed', collapsed);
+    transformContent?.classList.toggle('hidden', collapsed);
+    transformToggleBtn?.setAttribute('aria-expanded', (!collapsed).toString());
+    if (transformToggleLabel) {
+        transformToggleLabel.textContent = collapsed ? 'Feinkontrollen einblenden' : 'Feinkontrollen ausblenden';
     }
 }
 
@@ -1199,6 +1216,7 @@ overlayRotationRange?.addEventListener('input', () => {
     updateTransformControls();
     renderEditor();
 });
+transformToggleBtn?.addEventListener('click', () => setTransformCollapsed(!transformCollapsed));
 brightnessRange?.addEventListener('input', () => {
     const value = Number(brightnessRange.value);
     if (Number.isNaN(value)) return;
