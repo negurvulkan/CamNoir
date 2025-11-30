@@ -375,6 +375,11 @@ $themeStyles = theme_style_block($theme);
                             </div>
                             <p class="muted small">Position per Drag &amp; Drop direkt im Canvas.</p>
                         </div>
+                        <div class="panel-card">
+                            <p class="muted small">Auswahl löschen</p>
+                            <button id="delete-overlay-btn" type="button" class="secondary danger" disabled>Ausgewähltes Objekt löschen</button>
+                            <p class="muted small">Tipp: Tippe aufs ❌ am Objekt, um es noch schneller zu entfernen.</p>
+                        </div>
                     </div>
                 </div>
             </div>

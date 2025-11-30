@@ -44,6 +44,7 @@ const scaleUpBtn = document.getElementById('overlay-scale-up');
 const scaleDownBtn = document.getElementById('overlay-scale-down');
 const rotateLeftBtn = document.getElementById('overlay-rotate-left');
 const rotateRightBtn = document.getElementById('overlay-rotate-right');
+const deleteOverlayBtn = document.getElementById('delete-overlay-btn');
 const openCodeModalBtn = document.getElementById('open-code-modal');
 const closeCodeModalBtn = document.getElementById('close-code-modal');
 const codeModal = document.getElementById('code-modal');
@@ -93,6 +94,12 @@ let overlays = [];
 let selectedOverlay = null;
 let draggingOverlay = null;
 let dragStart = { x: 0, y: 0 };
+let activePointerId = null;
+let interactionMode = null;
+let resizeStartDistance = 0;
+let resizeStartScale = 1;
+let rotateStartAngle = 0;
+let rotateStartRotation = 0;
 let backgroundImage = null;
 let torchEnabled = false;
 let torchSupported = false;
@@ -114,6 +121,10 @@ const adjustedBaseCanvas = document.createElement('canvas');
 const adjustedBaseCtx = adjustedBaseCanvas.getContext('2d');
 let adjustedBackgroundImage = null;
 const MAX_IMPORT_DIMENSION = 2000;
+const HANDLE_SIZE = 32;
+const HANDLE_HIT_EXPANSION = 12;
+const MIN_OVERLAY_SCALE = 0.2;
+const MAX_OVERLAY_SCALE = 4;
 
 function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -473,6 +484,36 @@ function getOverlayBounds(overlay) {
     return { x: overlay.x - w / 2, y: overlay.y - h / 2, w, h };
 }
 
+function getCanvasCoordinates(e) {
+    if (!editorCanvas) return { x: 0, y: 0 };
+    const rect = editorCanvas.getBoundingClientRect();
+    const scaleX = editorCanvas.width / rect.width;
+    const scaleY = editorCanvas.height / rect.height;
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
+
+function getOverlayHandles(overlay) {
+    const bounds = getOverlayBounds(overlay);
+    const radius = HANDLE_SIZE / 2;
+    return [
+        { type: 'delete', x: bounds.x + bounds.w + radius / 2, y: bounds.y + radius / 2, size: HANDLE_SIZE },
+        { type: 'resize', x: bounds.x + bounds.w + radius / 2, y: bounds.y + bounds.h + radius / 2, size: HANDLE_SIZE },
+        { type: 'rotate', x: bounds.x + bounds.w / 2, y: bounds.y - radius, size: HANDLE_SIZE }
+    ];
+}
+
+function handleHitTest(overlay, x, y) {
+    if (!overlay) return null;
+    const handles = getOverlayHandles(overlay);
+    return handles.find((handle) => {
+        const half = handle.size / 2 + HANDLE_HIT_EXPANSION;
+        return x >= handle.x - half && x <= handle.x + half && y >= handle.y - half && y <= handle.y + half;
+    }) || null;
+}
+
 function overlayHitTest(x, y) {
     for (let i = overlays.length - 1; i >= 0; i -= 1) {
         const bounds = getOverlayBounds(overlays[i]);
@@ -570,8 +611,9 @@ function setSelected(overlay) {
 }
 
 function updateTransformControls() {
-    if (!overlayScaleRange || !overlayRotationRange || !overlayScaleValue || !overlayRotationValue) return;
     const hasSelection = Boolean(selectedOverlay);
+    if (deleteOverlayBtn) deleteOverlayBtn.disabled = !hasSelection;
+    if (!overlayScaleRange || !overlayRotationRange || !overlayScaleValue || !overlayRotationValue) return;
     overlayScaleRange.disabled = !hasSelection;
     overlayRotationRange.disabled = !hasSelection;
     if (!hasSelection) {
@@ -587,6 +629,46 @@ function updateTransformControls() {
     overlayRotationRange.value = rotationDeg;
     overlayScaleValue.textContent = scalePercent.toString();
     overlayRotationValue.textContent = rotationDeg.toString();
+}
+
+function deleteOverlay(target = selectedOverlay) {
+    if (!target) return;
+    overlays = overlays.filter((overlay) => overlay !== target);
+    setSelected(null);
+}
+
+function drawHandle(handle) {
+    if (!editorCtx) return;
+    const radius = handle.size / 2;
+    editorCtx.save();
+    editorCtx.beginPath();
+    editorCtx.fillStyle = 'rgba(5,5,9,0.92)';
+    editorCtx.strokeStyle = handle.type === 'delete' ? '#ff6b6b' : '#c8a2ff';
+    editorCtx.lineWidth = 2;
+    editorCtx.arc(handle.x, handle.y, radius, 0, Math.PI * 2);
+    editorCtx.fill();
+    editorCtx.stroke();
+    editorCtx.strokeStyle = '#fff';
+    editorCtx.lineWidth = 2.2;
+    editorCtx.beginPath();
+    if (handle.type === 'delete') {
+        editorCtx.moveTo(handle.x - 6, handle.y - 6);
+        editorCtx.lineTo(handle.x + 6, handle.y + 6);
+        editorCtx.moveTo(handle.x + 6, handle.y - 6);
+        editorCtx.lineTo(handle.x - 6, handle.y + 6);
+    } else if (handle.type === 'rotate') {
+        editorCtx.arc(handle.x, handle.y, radius - 8, -Math.PI * 0.7, Math.PI * 0.6);
+        editorCtx.moveTo(handle.x + (radius - 10), handle.y + 1);
+        editorCtx.lineTo(handle.x + (radius - 3), handle.y + 4);
+        editorCtx.lineTo(handle.x + (radius - 2), handle.y - 4);
+    } else {
+        editorCtx.moveTo(handle.x - 5, handle.y + 5);
+        editorCtx.lineTo(handle.x + 6, handle.y - 6);
+        editorCtx.moveTo(handle.x - 1, handle.y + 5);
+        editorCtx.lineTo(handle.x + 6, handle.y - 2);
+    }
+    editorCtx.stroke();
+    editorCtx.restore();
 }
 
 function drawOverlay(overlay) {
@@ -619,6 +701,8 @@ function drawOverlay(overlay) {
         editorCtx.lineWidth = 2;
         editorCtx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
         editorCtx.restore();
+        const handles = getOverlayHandles(overlay);
+        handles.forEach((handle) => drawHandle(handle));
     }
 }
 
@@ -769,46 +853,96 @@ function editSelectedText() {
     renderEditor();
 }
 
+function resetPointerState() {
+    if (editorCanvas && activePointerId !== null && editorCanvas.releasePointerCapture) {
+        try {
+            editorCanvas.releasePointerCapture(activePointerId);
+        } catch (err) {
+            // Ignorieren, falls Pointer-Capture bereits freigegeben wurde.
+        }
+    }
+    draggingOverlay = null;
+    interactionMode = null;
+    activePointerId = null;
+    resizeStartDistance = 0;
+    resizeStartScale = 1;
+    rotateStartAngle = 0;
+    rotateStartRotation = 0;
+    dragStart = { x: 0, y: 0 };
+}
+
 function onPointerDown(e) {
-    if (!editorCanvas) return;
-    const rect = editorCanvas.getBoundingClientRect();
-    const scaleX = editorCanvas.width / rect.width;
-    const scaleY = editorCanvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    if (!editorCanvas || activePointerId !== null) return;
+    activePointerId = e.pointerId;
+    if (editorCanvas.setPointerCapture) {
+        editorCanvas.setPointerCapture(e.pointerId);
+    }
+    const { x, y } = getCanvasCoordinates(e);
+    const handleHit = handleHitTest(selectedOverlay, x, y);
+    if (handleHit) {
+        if (handleHit.type === 'delete') {
+            deleteOverlay(selectedOverlay);
+            resetPointerState(e);
+            return;
+        }
+        draggingOverlay = selectedOverlay;
+        dragStart = { x, y };
+        if (handleHit.type === 'resize') {
+            interactionMode = 'resize';
+            resizeStartDistance = Math.max(12, Math.hypot(x - selectedOverlay.x, y - selectedOverlay.y));
+            resizeStartScale = selectedOverlay.scale || 1;
+        } else if (handleHit.type === 'rotate') {
+            interactionMode = 'rotate';
+            rotateStartAngle = Math.atan2(y - selectedOverlay.y, x - selectedOverlay.x);
+            rotateStartRotation = selectedOverlay.rotation || 0;
+        }
+        e.preventDefault();
+        return;
+    }
     const hit = overlayHitTest(x, y);
     if (hit) {
+        interactionMode = 'drag';
         draggingOverlay = hit;
         dragStart = { x, y };
         setSelected(hit);
         e.preventDefault();
     } else {
         setSelected(null);
+        resetPointerState(e);
     }
 }
 
 function onPointerMove(e) {
-    if (!draggingOverlay || !editorCanvas) return;
-    const rect = editorCanvas.getBoundingClientRect();
-    const scaleX = editorCanvas.width / rect.width;
-    const scaleY = editorCanvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    const dx = x - dragStart.x;
-    const dy = y - dragStart.y;
-    draggingOverlay.x += dx;
-    draggingOverlay.y += dy;
-    dragStart = { x, y };
+    if (!draggingOverlay || !editorCanvas || activePointerId !== e.pointerId || !interactionMode) return;
+    const { x, y } = getCanvasCoordinates(e);
+    if (interactionMode === 'drag') {
+        const dx = x - dragStart.x;
+        const dy = y - dragStart.y;
+        draggingOverlay.x += dx;
+        draggingOverlay.y += dy;
+        dragStart = { x, y };
+    } else if (interactionMode === 'resize') {
+        const distance = Math.max(12, Math.hypot(x - draggingOverlay.x, y - draggingOverlay.y));
+        const factor = distance / resizeStartDistance;
+        draggingOverlay.scale = clamp(resizeStartScale * factor, MIN_OVERLAY_SCALE, MAX_OVERLAY_SCALE);
+        updateTransformControls();
+    } else if (interactionMode === 'rotate') {
+        const angle = Math.atan2(y - draggingOverlay.y, x - draggingOverlay.x);
+        draggingOverlay.rotation = rotateStartRotation + (angle - rotateStartAngle);
+        updateTransformControls();
+    }
     renderEditor();
+    e.preventDefault();
 }
 
-function onPointerUp() {
-    draggingOverlay = null;
+function onPointerUp(e) {
+    if (activePointerId !== null && e?.pointerId !== undefined && e.pointerId !== activePointerId) return;
+    resetPointerState();
 }
 
 function modifyScale(factor) {
     if (!selectedOverlay) return;
-    selectedOverlay.scale = Math.min(4, Math.max(0.2, selectedOverlay.scale * factor));
+    selectedOverlay.scale = clamp(selectedOverlay.scale * factor, MIN_OVERLAY_SCALE, MAX_OVERLAY_SCALE);
     updateTransformControls();
     renderEditor();
 }
@@ -1007,6 +1141,7 @@ uploadInput?.addEventListener('change', (e) => {
 });
 addTextBtn?.addEventListener('click', addTextOverlay);
 editTextBtn?.addEventListener('click', editSelectedText);
+deleteOverlayBtn?.addEventListener('click', () => deleteOverlay());
 stickerPalette?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-src]');
     if (!btn) return;
@@ -1052,7 +1187,7 @@ overlayScaleRange?.addEventListener('input', () => {
     if (!selectedOverlay) return;
     const value = Number(overlayScaleRange.value);
     if (Number.isNaN(value)) return;
-    selectedOverlay.scale = Math.min(4, Math.max(0.2, value / 100));
+    selectedOverlay.scale = clamp(value / 100, MIN_OVERLAY_SCALE, MAX_OVERLAY_SCALE);
     updateTransformControls();
     renderEditor();
 });
@@ -1101,6 +1236,7 @@ fontSelect?.addEventListener('change', () => {
 editorCanvas?.addEventListener('pointerdown', onPointerDown);
 window.addEventListener('pointermove', onPointerMove);
 window.addEventListener('pointerup', onPointerUp);
+window.addEventListener('pointercancel', onPointerUp);
 scaleUpBtn?.addEventListener('click', () => modifyScale(1.1));
 scaleDownBtn?.addEventListener('click', () => modifyScale(0.9));
 rotateLeftBtn?.addEventListener('click', () => modifyRotation(-0.1));
